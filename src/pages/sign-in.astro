@@ -1,0 +1,78 @@
+---
+import { getEmDashCollection } from "emdash";
+import Base from "../layouts/Base.astro";
+import { currentStaffId, isCrossSite, safeNext, setStaffCookie, staffAuth } from "../staff/index.ts";
+import { formatTime } from "../utils/dates";
+import { isActive } from "../utils/people";
+import "../styles/forms.css";
+
+const next = safeNext(Astro.url.searchParams.get("next"));
+if (currentStaffId(Astro.cookies)) return Astro.redirect(next, 303);
+
+const { entries, error: loadError } = await getEmDashCollection("people", { limit: 1000 });
+if (loadError) console.error("Failed to load people:", loadError);
+// Inactive people can't sign in: they aren't listed and a posted id is refused like any unknown one.
+const people = entries
+	.filter(isActive)
+	.map((p) => ({ id: p.data.id, name: p.data.name }))
+	.sort((a, b) => a.name.localeCompare(b.name));
+
+let error: string | null = null;
+let chosen = "";
+if (Astro.request.method === "POST" && isCrossSite(Astro.request)) {
+	return new Response("Cross-site request blocked", { status: 403 });
+}
+if (Astro.request.method === "POST") {
+	const form = await Astro.request.formData();
+	chosen = String(form.get("person") ?? "");
+	const pin = String(form.get("pin") ?? "").trim();
+	if (!people.some((p) => p.id === chosen)) {
+		error = "Pick your name from the list.";
+		Astro.response.status = 400;
+	} else {
+		const result = await staffAuth().signIn(chosen, pin);
+		if (result.ok) {
+			setStaffCookie(Astro.cookies, result.token);
+			return Astro.redirect(next, 303);
+		}
+		error =
+			result.reason === "no-pin"
+				? "You don't have a PIN yet. Ask the office admin for one."
+				: result.reason === "locked"
+					? `Too many wrong PINs. Try again after ${formatTime(new Date(result.lockedUntil))}.`
+					: `That PIN didn't match. ${result.triesLeft} ${result.triesLeft === 1 ? "try" : "tries"} left before a 15-minute lock.`;
+		Astro.response.status = result.reason === "locked" ? 429 : 401;
+	}
+}
+---
+
+<Base title="Sign in">
+	<div class="form-page">
+		<section class="card" aria-labelledby="title">
+			<h1 id="title" class="card-title">Sign in</h1>
+			<p class="intro">For the daily quiz and reactions. Reading the hub never needs a PIN.</p>
+			{error && <p class="error" role="alert" id="error">{error}</p>}
+			<form method="post">
+				<label for="person">Your name</label>
+				<select id="person" name="person" required>
+					<option value="" disabled selected={!chosen}>Choose your name</option>
+					{people.map((p) => <option value={p.id} selected={p.id === chosen}>{p.name}</option>)}
+				</select>
+				<label for="pin">4-digit PIN</label>
+				<input
+					id="pin"
+					name="pin"
+					type="password"
+					inputmode="numeric"
+					pattern="[0-9]{4}"
+					maxlength="4"
+					autocomplete="off"
+					required
+					aria-describedby={error ? "error" : undefined}
+				/>
+				<button type="submit">Sign in</button>
+			</form>
+			<p class="hint">No PIN or forgot it? Ask the office admin on Slack.</p>
+		</section>
+	</div>
+</Base>

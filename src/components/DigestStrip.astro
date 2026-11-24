@@ -1,0 +1,52 @@
+---
+import type { DigestLine } from "../jobs/digest.ts";
+
+interface Props {
+	lines: DigestLine[];
+}
+
+const { lines } = Astro.props;
+---
+
+<section class="digest" aria-labelledby="digest-title">
+	<h2 id="digest-title" class="digest-title">This morning</h2>
+	<ul role="list">
+		{lines.map((l) => <li>{l.text}</li>)}
+	</ul>
+</section>
+
+<style>
+	.digest {
+		margin-block-end: 2.5rem;
+		padding: 1rem 1.25rem 1.1rem;
+		border-inline-start: 0.35rem solid var(--highlight);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		box-shadow: 0 1px 0 var(--rule);
+	}
+	.digest-title {
+		margin: 0 0 0.4rem;
+		font-family: var(--font-display);
+		font-size: 1.1rem;
+		font-weight: 800;
+		line-height: 1.2;
+	}
+	ul {
+		display: grid;
+		gap: 0.35rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	li {
+		line-height: 1.45;
+		text-wrap: pretty;
+		overflow-wrap: break-word;
+	}
+	li::before {
+		content: "\2022";
+		margin-inline-end: 0.5rem;
+		color: var(--accent-ink);
+		font-weight: 800;
+	}
+</style>

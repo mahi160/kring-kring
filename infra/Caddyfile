@@ -1,0 +1,14 @@
+{
+	# Staff use plain HTTP; HTTPS (internal CA) exists so the admin can use passkeys.
+	auto_https disable_redirects
+	skip_install_trust
+}
+
+http:// {
+	reverse_proxy 127.0.0.1:3000
+}
+
+https://hub.local {
+	tls internal
+	reverse_proxy 127.0.0.1:3000
+}

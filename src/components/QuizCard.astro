@@ -1,0 +1,213 @@
+---
+import { nextQuizDay, type QuizClock, type QuizView } from "../staff/quiz.ts";
+import { formatTime } from "../utils/dates";
+
+interface Props {
+	clock: QuizClock;
+	/** Already stripped of the answer unless the phase is "revealed". */
+	quiz: QuizView | null;
+	signedIn: boolean;
+	myChoice: number | null;
+	stats: { answered: number; correct: number } | null;
+}
+
+const { clock, quiz, signedIn, myChoice, stats } = Astro.props;
+const answered = myChoice !== null;
+const canAnswer = clock.phase === "open" && signedIn && !answered && quiz;
+const revealed = clock.phase === "revealed" && quiz?.correct !== undefined;
+
+const next = `The next question opens ${nextQuizDay(clock)} at ${formatTime(clock.opensAt)}.`;
+const message = !quiz
+	? {
+			"closed-day": `No quiz on weekends. ${next}`,
+			before: `Today's question opens at ${formatTime(clock.opensAt)}.`,
+			open: "No quiz today: the question jar is empty. Check back tomorrow!",
+			revealed: `No quiz today. ${next}`,
+		}[clock.phase]
+	: null;
+
+const status = revealed
+	? myChoice === null
+		? null
+		: myChoice === quiz.correct
+			? "You got it right!"
+			: "Not this time."
+	: clock.phase === "open"
+		? answered
+			? `Answer locked in. The result shows at ${formatTime(clock.revealAt)}.`
+			: signedIn
+				? `Open until ${formatTime(clock.revealAt)}. One answer each, no changes.`
+				: null
+		: null;
+---
+
+<section id="quiz" class="card quiz" aria-labelledby="quiz-title">
+	<h2 id="quiz-title" class="card-title">Daily quiz</h2>
+	{message && <p class="message">{message}</p>}
+	{
+		quiz && (
+			<>
+				<p class="question">{quiz.question}</p>
+				{canAnswer ? (
+					<form method="post" action="/quiz-answer">
+						<input type="hidden" name="question" value={quiz.id} />
+						<fieldset>
+							<legend class="visually-hidden">{quiz.question}</legend>
+							{quiz.choices.map((choice, i) => (
+								<label class="row choice">
+									<input type="radio" name="choice" value={i} required />
+									<span>{choice}</span>
+								</label>
+							))}
+						</fieldset>
+						<button type="submit">Lock it in</button>
+					</form>
+				) : (
+					<ol role="list">
+						{quiz.choices.map((choice, i) => {
+							const isCorrect = revealed && i === quiz.correct;
+							const isMine = i === myChoice;
+							return (
+								<li class:list={["row", { correct: isCorrect, mine: isMine, wrong: revealed && isMine && !isCorrect }]}>
+									<span>{choice}</span>
+									{isCorrect && <span class="tag">Answer</span>}
+									{isMine && !isCorrect && <span class="tag">{revealed ? "Your pick" : "Your answer"}</span>}
+								</li>
+							);
+						})}
+					</ol>
+				)}
+				{status && <p class="status">{status}</p>}
+				{revealed && quiz.explanation && <p class="explanation">{quiz.explanation}</p>}
+				{revealed && stats && (
+					<p class="meta">
+						{stats.answered === 0
+							? "Nobody answered today."
+							: `${stats.correct} of ${stats.answered} got it right.`}
+					</p>
+				)}
+				{clock.phase === "open" && !signedIn && (
+					<p class="meta">
+						<a href="/sign-in?next=/%23quiz">Sign in to answer</a>
+					</p>
+				)}
+			</>
+		)
+	}
+	<p class="meta"><a href="/quiz">Leaderboard &amp; past questions →</a></p>
+</section>
+
+<style>
+	.message,
+	.question {
+		margin: 0;
+		overflow-wrap: break-word;
+	}
+	.question {
+		margin-block-end: 1rem;
+		font-size: 1.125rem;
+		font-weight: 700;
+		line-height: 1.3;
+		text-wrap: pretty;
+	}
+	.message {
+		color: var(--slate);
+		text-wrap: pretty;
+	}
+	fieldset {
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	ol {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	fieldset,
+	ol {
+		display: grid;
+		gap: 0.5rem;
+	}
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.55rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--paper);
+		line-height: 1.3;
+		overflow-wrap: break-word;
+	}
+	.row > span:first-of-type {
+		flex: 1;
+		min-width: 0;
+	}
+	.row.mine {
+		outline: 2px solid var(--ink);
+	}
+	.row.correct {
+		background: var(--note-mint);
+		font-weight: 700;
+	}
+	.row.wrong {
+		background: var(--note-pink);
+	}
+	.tag {
+		flex: none;
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.choice {
+		cursor: pointer;
+		outline: 2px solid transparent;
+	}
+	.choice:hover {
+		outline-color: var(--rule);
+	}
+	.choice:has(:checked) {
+		outline-color: var(--ink);
+		font-weight: 700;
+	}
+	.choice:has(:focus-visible) {
+		outline: 3px solid var(--highlight);
+	}
+	.choice input {
+		margin: 0;
+		accent-color: var(--accent-ink);
+	}
+	button {
+		margin-block-start: 0.9rem;
+		padding: 0.5rem 1.25rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	.status,
+	.explanation,
+	.meta {
+		margin: 0.9rem 0 0;
+		font-size: 0.9375rem;
+		text-wrap: pretty;
+	}
+	.status {
+		font-weight: 700;
+	}
+	.meta {
+		color: var(--slate);
+	}
+	.meta a {
+		color: var(--accent-ink);
+		font-weight: 700;
+	}
+</style>

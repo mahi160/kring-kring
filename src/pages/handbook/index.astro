@@ -1,0 +1,108 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getHandbookPages, groupByTopic } from "../../utils/handbook";
+
+const q = (Astro.url.searchParams.get("q") ?? "").trim().slice(0, 100);
+const needle = q.toLowerCase();
+
+const all = await getHandbookPages();
+const pages = needle
+	? all.filter((p) => `${p.data.title} ${p.data.summary ?? ""}`.toLowerCase().includes(needle))
+	: all;
+const groups = groupByTopic(pages);
+---
+
+<Base title="Office code book" description="Office rules, policies and how-tos.">
+	<h1 class="page-title">Office code book</h1>
+	<p class="page-intro">The rules, policies and how-tos that keep the office running smoothly.</p>
+
+	{
+		all.length > 0 && (
+			<form class="search" role="search" method="get">
+				<label class="visually-hidden" for="q">Search the code book</label>
+				<input id="q" type="search" name="q" value={q} placeholder="Search the code book" />
+				<button type="submit">Search</button>
+			</form>
+		)
+	}
+
+	{
+		groups.length === 0 ? (
+			<p class="empty">
+				{all.length === 0 ? "No handbook pages yet." : `Nothing found for “${q}”.`}
+				{needle && <a href="/handbook">Show everything</a>}
+			</p>
+		) : (
+			groups.map((g) => (
+				<section class="card topic">
+					<h2 class="card-title">{g.topic}</h2>
+					<ul class="toc">
+						{g.pages.map((p) => (
+							<li>
+								<a href={`/handbook/${p.id}`}>{p.data.title}</a>
+								{p.data.summary && <span class="summary">{p.data.summary}</span>}
+							</li>
+						))}
+					</ul>
+				</section>
+			))
+		)
+	}
+</Base>
+
+<style>
+	.search {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-block-end: 2rem;
+	}
+	.search input {
+		flex: 1 1 14rem;
+		padding: 0.5rem 0.75rem;
+		border: 2px solid var(--ink);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		font: inherit;
+	}
+	.search button {
+		padding: 0.5rem 1rem;
+		border: 2px solid var(--ink);
+		border-radius: var(--radius);
+		background: var(--highlight);
+		color: var(--on-highlight);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.topic {
+		margin-block-end: 2rem;
+	}
+	.toc {
+		display: grid;
+		gap: 0.9rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.toc a {
+		font-weight: 700;
+	}
+	.summary {
+		display: block;
+		color: var(--slate);
+		font-size: 0.9375rem;
+		overflow-wrap: break-word;
+	}
+	.empty {
+		color: var(--slate);
+	}
+	.empty a {
+		margin-inline-start: 0.5rem;
+	}
+	@media print {
+		.search {
+			display: none;
+		}
+	}
+</style>

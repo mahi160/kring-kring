@@ -1,0 +1,321 @@
+---
+import { getEmDashCollection } from "emdash";
+import Base from "../layouts/Base.astro";
+import { currentStaffId, dailyQuiz } from "../staff/index.ts";
+import { quizClock } from "../staff/quiz.ts";
+import { leaderboard, type LeaderboardRow } from "../utils/leaderboard.ts";
+import { quizBank } from "../utils/quiz.ts";
+
+const PER_PAGE = 20;
+const now = new Date();
+const clock = quizClock(now);
+const staffId = currentStaffId(Astro.cookies);
+
+const { entries: people, error } = await getEmDashCollection("people", { limit: 1000 });
+if (error) console.error("Failed to load people:", error);
+const [board, bank] = await Promise.all([leaderboard(now, people, staffId), quizBank()]);
+
+// Only days already revealed: today's answer stays hidden until 18:00 Dhaka.
+const quiz = dailyQuiz();
+const bankById = new Map(bank.map((q) => [q.id, q]));
+const past = quiz
+	.history(clock.day)
+	.days.filter((d) => d.day < clock.day || (d.day === clock.day && clock.phase === "revealed"))
+	.flatMap((d) => {
+		const question = bankById.get(d.questionId);
+		return question ? [{ day: d.day, question }] : [];
+	})
+	.reverse();
+const pages = Math.max(1, Math.ceil(past.length / PER_PAGE));
+const requested = Number(Astro.url.searchParams.get("page"));
+const page = Number.isInteger(requested) ? Math.min(Math.max(requested, 1), pages) : 1;
+const history = past.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(({ day, question }) => {
+	const stats = quiz.stats(day, question);
+	const mine = staffId ? quiz.answerOf(day, staffId) : null;
+	return {
+		day,
+		date: new Date(`${day}T00:00:00Z`),
+		question,
+		stats,
+		percent: stats.answered === 0 ? 0 : Math.round((stats.correct / stats.answered) * 100),
+		mine,
+	};
+});
+const champs = board.lastMonthRows.filter((r) => r.rank === 1);
+const longDate = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone: "UTC" });
+---
+
+<Base title="Daily quiz" description="Quiz points, leaderboard and past questions.">
+	<h1 class="page-title">Daily quiz</h1>
+	<p class="page-intro"><a href="/#quiz">← Today's question</a></p>
+
+	<section class="card me" aria-labelledby="me-title">
+		<h2 id="me-title" class="card-title">Your score</h2>
+		{
+			board.me ? (
+				<dl class="stats">
+					<div>
+						<dt>Points in {board.monthLabel}</dt>
+						<dd>{board.me.points}</dd>
+					</div>
+					<div>
+						<dt>Rank</dt>
+						<dd>{board.me.rank ?? "–"}</dd>
+					</div>
+					<div>
+						<dt>Current streak</dt>
+						<dd>{board.me.currentStreak}</dd>
+					</div>
+					<div>
+						<dt>Best streak</dt>
+						<dd>{board.me.bestStreak}</dd>
+					</div>
+				</dl>
+			) : (
+				<p class="note">
+					<a href="/sign-in?next=/quiz">Sign in to see your points</a>
+				</p>
+			)
+		}
+	</section>
+
+	<div class="boards">
+		<section class="card" aria-labelledby="month-title">
+			<h2 id="month-title" class="card-title">{board.monthLabel}</h2>
+			{
+				board.rows.length === 0 ? (
+					<p class="note">No points yet this month. Answer today's quiz to get on the board.</p>
+				) : (
+					<ol role="list">
+						{board.rows.map((r) => (
+							<li class:list={["row", { mine: r.personId === staffId }]}>
+								<span class="rank">{r.rank}</span>
+								<span class="name">{r.name}</span>
+								<span class="points">{r.points}</span>
+							</li>
+						))}
+					</ol>
+				)
+			}
+		</section>
+		<section class="card" aria-labelledby="last-title">
+			<h2 id="last-title" class="card-title">{board.lastMonthLabel}, final</h2>
+			{
+				board.lastMonthRows.length === 0 ? (
+					<p class="note">Nobody scored last month.</p>
+				) : (
+					<>
+						<p class="note">
+							Champ{champs.length > 1 ? "s" : ""}: {champs.map((r: LeaderboardRow) => r.name).join(", ")} <span role="img" aria-label="trophy">🏆</span>
+						</p>
+						<ol role="list">
+							{board.lastMonthRows.map((r) => (
+								<li class:list={["row", { mine: r.personId === staffId }]}>
+									<span class="rank">{r.rank}</span>
+									<span class="name">
+										{r.name}
+										{r.rank === 1 && <span role="img" aria-label="Champion"> 🏆</span>}
+									</span>
+									<span class="points">{r.points}</span>
+								</li>
+							))}
+						</ol>
+					</>
+				)
+			}
+		</section>
+	</div>
+
+	<section class="history" aria-labelledby="history-title">
+		<h2 id="history-title" class="section-title">Past questions</h2>
+		{
+			history.length === 0 ? (
+				<p class="note">No past questions yet.</p>
+			) : (
+				<ol class="days" role="list">
+					{history.map((h) => (
+						<li class="card day">
+							<h3 class="day-date">
+								<time datetime={h.day}>{longDate.format(h.date)}</time>
+							</h3>
+							<p class="question">{h.question.question}</p>
+							<ol class="choices" role="list">
+								{h.question.choices.map((choice, i) => {
+									const correct = i === h.question.correct;
+									const mine = i === h.mine;
+									return (
+										<li class:list={["row", { correct, mine, wrong: mine && !correct }]}>
+											<span class="label">{choice}</span>
+											{correct && <span class="tag">Answer</span>}
+											{mine && <span class="tag">{correct ? "Your pick" : "Your pick, not quite"}</span>}
+										</li>
+									);
+								})}
+							</ol>
+							{staffId && h.mine === null && <p class="skipped">You skipped this one.</p>}
+							{h.question.explanation && <p class="explanation">{h.question.explanation}</p>}
+							<p class="meta">
+								{h.stats.answered === 0
+									? "Nobody answered."
+									: `${h.stats.correct} of ${h.stats.answered} got it right (${h.percent}%).`}
+							</p>
+						</li>
+					))}
+				</ol>
+			)
+		}
+		{
+			pages > 1 && (
+				<nav class="pager" aria-label="Past questions pages">
+					{page > 1 && <a href={`/quiz?page=${page - 1}`} rel="prev">← Newer</a>}
+					<span>Page {page} of {pages}</span>
+					{page < pages && <a href={`/quiz?page=${page + 1}`} rel="next">Older →</a>}
+				</nav>
+			)
+		}
+	</section>
+</Base>
+
+<style>
+	.card {
+		margin-block-end: 2rem;
+	}
+	p {
+		margin: 0;
+	}
+	.note {
+		color: var(--slate);
+		line-height: 1.4;
+		margin-block-end: 0.75rem;
+	}
+	.note a {
+		color: var(--accent-ink);
+		font-weight: 700;
+	}
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+		gap: 1rem;
+		margin: 0;
+	}
+	.stats dt {
+		font-size: 0.875rem;
+		color: var(--slate);
+		line-height: 1.3;
+	}
+	.stats dd {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 2.25rem;
+		font-weight: 800;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+	.boards {
+		display: grid;
+		gap: 0 2rem;
+		align-items: start;
+	}
+	@media (min-width: 48rem) {
+		.boards {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+	ol {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 0.5rem;
+	}
+	.row {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.55rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--paper);
+		line-height: 1.3;
+		overflow-wrap: break-word;
+	}
+	.row.mine {
+		outline: 2px solid var(--ink);
+	}
+	.rank,
+	.points {
+		flex: none;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+	.rank {
+		min-width: 1.25rem;
+	}
+	.name,
+	.label {
+		flex: 1;
+		min-width: 0;
+	}
+	.section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 1rem 0 1.5rem;
+		font-size: 1.375rem;
+	}
+	.section-title::after {
+		content: "";
+		flex: 1;
+		border-block-start: 2px dashed var(--rule);
+	}
+	.days {
+		gap: 2rem;
+	}
+	.days > .card {
+		margin: 0;
+	}
+	.day-date {
+		margin: 0 0 0.5rem;
+		font-size: 0.9375rem;
+		color: var(--slate);
+	}
+	.question {
+		margin-block-end: 1rem;
+		font-size: 1.125rem;
+		font-weight: 700;
+		line-height: 1.3;
+	}
+	.choices .row.correct {
+		background: var(--note-mint);
+		font-weight: 700;
+	}
+	.choices .row.wrong {
+		background: var(--note-pink);
+	}
+	.tag {
+		flex: none;
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.skipped,
+	.explanation,
+	.meta {
+		margin-block-start: 0.9rem;
+		font-size: 0.9375rem;
+	}
+	.skipped {
+		font-weight: 700;
+	}
+	.meta {
+		color: var(--slate);
+	}
+	.pager {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem 1.5rem;
+		margin-block-start: 2rem;
+		font-weight: 700;
+	}
+</style>

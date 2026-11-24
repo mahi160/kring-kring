@@ -1,0 +1,240 @@
+---
+import { decodeSlug } from "emdash";
+import { PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import { formatShortDate } from "../../utils/dates";
+import { getHandbookPages } from "../../utils/handbook";
+
+const slug = decodeSlug(Astro.params.slug);
+
+if (!slug) {
+	return Astro.rewrite("/404");
+}
+
+const all = await getHandbookPages();
+const page = all.find((p) => p.id === slug);
+
+if (!page) {
+	return Astro.rewrite("/404");
+}
+
+const siblings = all.filter((p) => p.data.topic === page.data.topic);
+const at = siblings.findIndex((p) => p.id === slug);
+const prev = siblings[at - 1];
+const next = siblings[at + 1];
+---
+
+<Base
+	title={page.data.title}
+	description={page.data.summary}
+	content={{ collection: "handbook", id: page.data.id, slug }}
+>
+	<p class="crumb"><a href="/handbook">Office code book</a></p>
+	<article>
+		<h1 class="page-title" {...page.edit.title}>{page.data.title}</h1>
+		<p class="meta">
+			<span class="chip">{page.data.topic}</span>
+			<span>Updated {formatShortDate(page.data.updatedAt)}, {page.data.updatedAt.getFullYear()}</span>
+		</p>
+
+		<div class="prose">
+			<PortableText value={page.data.content} />
+		</div>
+	</article>
+
+	{
+		(prev || next) && (
+			<nav class="pager" aria-label="In this topic">
+				{prev ? (
+					<a class="prev" href={`/handbook/${prev.id}`}>
+						<span class="dir">Previous</span>
+						{prev.data.title}
+					</a>
+				) : (
+					<span />
+				)}
+				{next && (
+					<a class="next" href={`/handbook/${next.id}`}>
+						<span class="dir">Next</span>
+						{next.data.title}
+					</a>
+				)}
+			</nav>
+		)
+	}
+
+	{
+		siblings.length > 1 && (
+			<aside class="card topic" aria-labelledby="topic-title">
+				<h2 class="card-title" id="topic-title">In this topic</h2>
+				<ul class="siblings">
+					{siblings.map((p) => (
+						<li>
+							{p.id === slug ? (
+								<strong aria-current="page">{p.data.title}</strong>
+							) : (
+								<a href={`/handbook/${p.id}`}>{p.data.title}</a>
+							)}
+						</li>
+					))}
+				</ul>
+			</aside>
+		)
+	}
+</Base>
+
+<style>
+	.crumb {
+		margin: clamp(2rem, 1rem + 3vw, 3rem) 0 0;
+		font-size: 0.9375rem;
+	}
+	.crumb + article .page-title {
+		margin-block-start: 0.5rem;
+	}
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 1rem;
+		margin: 0 0 2rem;
+		color: var(--slate);
+		font-size: 0.9375rem;
+	}
+	.chip {
+		padding: 0.15rem 0.7rem;
+		border-radius: 999px;
+		background: var(--note-yellow);
+		color: var(--ink);
+		font-weight: 700;
+	}
+
+	.prose {
+		max-width: 65ch;
+		overflow-wrap: break-word;
+	}
+	.prose :global(h2),
+	.prose :global(h3),
+	.prose :global(h4) {
+		margin: 2rem 0 0.5rem;
+		font-family: var(--font-display);
+		font-weight: 800;
+		line-height: 1.2;
+	}
+	.prose :global(h2) {
+		font-size: 1.5rem;
+	}
+	.prose :global(h3) {
+		font-size: 1.25rem;
+	}
+	.prose :global(h4) {
+		font-size: 1.0625rem;
+	}
+	.prose :global(p),
+	.prose :global(ul),
+	.prose :global(ol) {
+		margin: 0 0 1rem;
+	}
+	.prose :global(ul),
+	.prose :global(ol) {
+		padding-inline-start: 1.5rem;
+	}
+	.prose :global(li) {
+		margin-block-end: 0.35rem;
+	}
+	.prose :global(blockquote) {
+		margin: 1.5rem 0;
+		padding: 0.75rem 1rem;
+		border-inline-start: 0.3rem solid var(--highlight);
+		border-radius: var(--radius);
+		background: var(--note-yellow);
+	}
+	.prose :global(blockquote p) {
+		margin: 0;
+	}
+	.prose :global(code) {
+		padding: 0.1rem 0.35rem;
+		border-radius: 0.25rem;
+		background: var(--rule);
+		font-size: 0.9em;
+	}
+	.prose :global(pre) {
+		overflow-x: auto;
+		padding: 1rem;
+		border-radius: var(--radius);
+		background: var(--ink);
+		color: var(--sheet);
+	}
+	.prose :global(pre code) {
+		padding: 0;
+		background: none;
+	}
+	.prose :global(table) {
+		display: block;
+		overflow-x: auto;
+		margin: 0 0 1rem;
+		border-collapse: collapse;
+	}
+	.prose :global(th),
+	.prose :global(td) {
+		padding: 0.4rem 0.75rem;
+		border: 1px solid var(--rule);
+		text-align: start;
+	}
+	.prose :global(img) {
+		max-width: 100%;
+		height: auto;
+	}
+
+	.pager {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-block: 2.5rem;
+	}
+	.pager a {
+		display: block;
+		max-width: 20rem;
+		padding: 0.75rem 1rem;
+		border: 2px solid var(--ink);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		font-weight: 700;
+		text-decoration: none;
+		overflow-wrap: break-word;
+	}
+	.pager .next {
+		margin-inline-start: auto;
+		text-align: end;
+	}
+	.dir {
+		display: block;
+		color: var(--slate);
+		font-size: 0.8125rem;
+		font-weight: 400;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.topic {
+		margin-block-start: 2.5rem;
+	}
+	.siblings {
+		display: grid;
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	@media print {
+		:global(.site-header),
+		.crumb,
+		.pager,
+		.topic {
+			display: none;
+		}
+		.prose {
+			max-width: none;
+		}
+	}
+</style>

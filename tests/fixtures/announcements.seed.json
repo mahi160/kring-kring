@@ -1,0 +1,58 @@
+{
+	"$schema": "https://emdashcms.com/seed.schema.json",
+	"version": "1",
+	"content": {
+		"announcements": [
+			{
+				"id": "smoke-pinned",
+				"slug": "smoke-pinned",
+				"status": "published",
+				"data": { "title": "SMOKE pinned notice", "pinned": true }
+			},
+			{
+				"id": "smoke-regular",
+				"slug": "smoke-regular",
+				"status": "published",
+				"data": { "title": "SMOKE regular notice", "pinned": false, "expires_at": "2099-01-01T00:00:00.000Z" }
+			},
+			{
+				"id": "smoke-expired",
+				"slug": "smoke-expired",
+				"status": "published",
+				"data": { "title": "SMOKE expired notice", "pinned": true, "expires_at": "2020-01-01T00:00:00.000Z" }
+			},
+			{
+				"id": "smoke-draft",
+				"slug": "smoke-draft",
+				"status": "draft",
+				"data": { "title": "SMOKE draft notice" }
+			}
+		],
+		"events": [
+			{
+				"id": "smoke-later-event",
+				"slug": "smoke-later-event",
+				"status": "published",
+				"data": { "title": "SMOKE later event", "starts_at": "2099-02-01T04:00:00.000Z", "location": "Roof" }
+			},
+			{
+				"id": "smoke-past-event",
+				"slug": "smoke-past-event",
+				"status": "published",
+				"data": { "title": "SMOKE past event", "starts_at": "2020-01-01T04:00:00.000Z" }
+			},
+			{
+				"id": "smoke-sooner-event",
+				"slug": "smoke-sooner-event",
+				"status": "published",
+				"data": {
+					"title": "SMOKE sooner event",
+					"starts_at": "2099-01-01T08:30:00.000Z",
+					"ends_at": "2099-01-01T10:00:00.000Z",
+					"location": "Meeting room",
+					"description": "Bring a mug."
+				}
+			}
+		]
+	}
+}

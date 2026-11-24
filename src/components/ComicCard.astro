@@ -1,0 +1,176 @@
+---
+import { SOURCE_NAMES, type ComicSource } from "../comics/sources.ts";
+import type { Comic, ReactionKind } from "../comics/store.ts";
+
+interface Props {
+	comic: Comic | null;
+	counts: Record<ReactionKind, number>;
+	/** The signed-in person's own reactions. */
+	mine: Record<ReactionKind, boolean>;
+	signedIn: boolean;
+	/** Last month's winner, only passed in the first days of a month. */
+	winner: Comic | null;
+}
+
+const { comic, counts, mine, signedIn, winner } = Astro.props;
+const sourceName = (c: Comic) => SOURCE_NAMES[c.source as ComicSource] ?? c.source;
+const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
+	{ kind: "like", emoji: "👍", label: "Like" },
+	{ kind: "laugh", emoji: "😂", label: "Laugh" },
+];
+---
+
+{
+	comic && (
+		<section id="comic" class="card comic" aria-labelledby="comic-title">
+			<h2 id="comic-title" class="card-title">Comic of the day</h2>
+			<figure>
+				<h3>{comic.title}</h3>
+				<img src={`/comics/${comic.file}`} alt={comic.title} loading="lazy" decoding="async" />
+				{comic.caption && <figcaption>{comic.caption}</figcaption>}
+			</figure>
+			<p class="source">
+				via <a href={comic.url} rel="noopener">{sourceName(comic)}</a>
+			</p>
+			<div class="reactions">
+				{buttons.map(({ kind, emoji, label }) =>
+					signedIn ? (
+						<form method="post" action="/comic-react">
+							<input type="hidden" name="comic" value={comic.id} />
+							<input type="hidden" name="kind" value={kind} />
+							<button type="submit" aria-pressed={mine[kind]} aria-label={`${label}, ${counts[kind]}`}>
+								<span aria-hidden="true">{emoji}</span>
+								<span aria-hidden="true" class="count">{counts[kind]}</span>
+							</button>
+						</form>
+					) : (
+						<p class="static" aria-label={`${label}, ${counts[kind]}`}>
+							<span aria-hidden="true">{emoji}</span>
+							<span aria-hidden="true" class="count">{counts[kind]}</span>
+						</p>
+					),
+				)}
+				{!signedIn && (
+					<a class="signin" href="/sign-in?next=/%23comic">Sign in to react</a>
+				)}
+			</div>
+			{
+				winner && (
+					<aside class="winner" aria-label="Comic of the month">
+						<img src={`/comics/${winner.file}`} alt="" width="64" height="64" loading="lazy" decoding="async" />
+						<p>
+							<strong>Comic of the month</strong>
+							<a href={winner.url} rel="noopener">{winner.title}</a>
+						</p>
+					</aside>
+				)
+			}
+		</section>
+	)
+}
+
+<style>
+	.comic {
+		margin-block-start: 3rem;
+	}
+	figure {
+		margin: 0;
+	}
+	h3 {
+		margin: 0 0 0.75rem;
+		font-size: 1.125rem;
+		line-height: 1.3;
+		text-wrap: balance;
+		overflow-wrap: break-word;
+	}
+	figure img {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		margin-inline: auto;
+		border-radius: 0.4rem;
+	}
+	figcaption {
+		margin-block-start: 0.6rem;
+		color: var(--slate);
+		font-size: 0.9375rem;
+		line-height: 1.4;
+		font-style: italic;
+		text-wrap: pretty;
+		overflow-wrap: break-word;
+	}
+	.source {
+		margin: 0.75rem 0 0;
+		font-size: 0.875rem;
+		color: var(--slate);
+	}
+	.source a,
+	.signin,
+	.winner a {
+		color: var(--accent-ink);
+		font-weight: 700;
+	}
+	.reactions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+		margin-block-start: 1rem;
+	}
+	.reactions form,
+	.reactions p {
+		margin: 0;
+	}
+	button,
+	.static {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.35rem 0.9rem;
+		border: 2px solid var(--rule);
+		border-radius: 999px;
+		background: var(--paper);
+		color: inherit;
+		font: inherit;
+		line-height: 1.3;
+	}
+	button {
+		cursor: pointer;
+	}
+	button[aria-pressed="true"] {
+		border-color: var(--ink);
+		background: var(--note-yellow);
+		font-weight: 700;
+	}
+	button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	.count {
+		font-variant-numeric: tabular-nums;
+	}
+	.winner {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-block-start: 1.25rem;
+		padding: 0.6rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--note-mint);
+	}
+	.winner img {
+		flex: none;
+		width: 4rem;
+		height: 4rem;
+		object-fit: cover;
+		border-radius: 0.3rem;
+		background: var(--sheet);
+	}
+	.winner p {
+		display: grid;
+		min-width: 0;
+		margin: 0;
+		line-height: 1.3;
+		overflow-wrap: break-word;
+	}
+</style>

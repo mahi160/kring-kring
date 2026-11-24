@@ -1,0 +1,61 @@
+---
+import Base from "../layouts/Base.astro";
+import { COOKIE, currentStaffId, isCrossSite, staffAuth } from "../staff/index.ts";
+import { formatTime } from "../utils/dates";
+import "../styles/forms.css";
+
+const personId = currentStaffId(Astro.cookies);
+if (!personId) return Astro.redirect("/sign-in?next=/pin", 303);
+
+let error: string | null = null;
+let done = false;
+if (Astro.request.method === "POST" && isCrossSite(Astro.request)) {
+	return new Response("Cross-site request blocked", { status: 403 });
+}
+if (Astro.request.method === "POST") {
+	const form = await Astro.request.formData();
+	const current = String(form.get("current") ?? "").trim();
+	const next = String(form.get("next") ?? "").trim();
+	const confirm = String(form.get("confirm") ?? "").trim();
+	if (next !== confirm) {
+		error = "The new PINs don't match.";
+		Astro.response.status = 400;
+	} else {
+		const token = Astro.cookies.get(COOKIE)?.value ?? "";
+		const result = await staffAuth().changePin(personId, current, next, token);
+		if (result.ok) {
+			done = true;
+		} else {
+			error =
+				result.reason === "invalid-new-pin"
+					? "The new PIN must be exactly 4 digits."
+					: result.reason === "locked"
+						? `Too many wrong PINs. Try again after ${formatTime(new Date(result.lockedUntil))}.`
+						: result.reason === "wrong"
+							? `Your current PIN didn't match. ${result.triesLeft} ${result.triesLeft === 1 ? "try" : "tries"} left before a 15-minute lock.`
+							: "You don't have a PIN yet. Ask the office admin for one.";
+			Astro.response.status = result.reason === "locked" ? 429 : 400;
+		}
+	}
+}
+---
+
+<Base title="Change your PIN">
+	<div class="form-page">
+		<section class="card" aria-labelledby="title">
+			<h1 id="title" class="card-title">Change your PIN</h1>
+			{done && <p class="success" role="status">PIN changed. Other browsers you were signed in on are now signed out.</p>}
+			{error && <p class="error" role="alert" id="error">{error}</p>}
+			<form method="post">
+				<label for="current">Current PIN</label>
+				<input id="current" name="current" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required />
+				<label for="next">New PIN</label>
+				<input id="next" name="next" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required />
+				<label for="confirm">New PIN again</label>
+				<input id="confirm" name="confirm" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required />
+				<button type="submit">Change PIN</button>
+			</form>
+			<p class="hint"><a href="/">Back to the hub</a></p>
+		</section>
+	</div>
+</Base>

@@ -1,0 +1,96 @@
+---
+import type { Joke, WikiDigest } from "../utils/daily";
+
+interface Props {
+	joke: Joke | null;
+	wiki: WikiDigest | null;
+}
+
+const { joke, wiki } = Astro.props;
+---
+
+{
+	joke && (
+		<section class="card joke" aria-labelledby="joke-title">
+			<h2 id="joke-title" class="card-title">Daily Chuck</h2>
+			<blockquote>
+				<p>{joke.text}</p>
+			</blockquote>
+			<p class="credit">
+				via <a href="https://api.chucknorris.io/">chucknorris.io</a>
+			</p>
+		</section>
+	)
+}
+{
+	wiki && (
+		<section class="card wiki" aria-labelledby="wiki-title">
+			<h2 id="wiki-title" class="card-title">Today on Wikipedia</h2>
+			{wiki.article && (
+				<article>
+					{wiki.article.thumbnail && <img src={wiki.article.thumbnail} alt="" loading="lazy" decoding="async" />}
+					<h3>
+						<a href={wiki.article.url} rel="noopener">
+							{wiki.article.title}
+						</a>
+					</h3>
+					<p>{wiki.article.summary}</p>
+				</article>
+			)}
+			{wiki.onThisDay && (
+				<p class="on-this-day">
+					<span class="year">On this day in {wiki.onThisDay.year}:</span> {wiki.onThisDay.text}
+				</p>
+			)}
+		</section>
+	)
+}
+
+<style>
+	.joke {
+		background: var(--note-yellow);
+		rotate: 1deg;
+	}
+	blockquote {
+		margin: 0;
+		font-size: 1.0625rem;
+		font-weight: 700;
+		line-height: 1.4;
+	}
+	blockquote p::before {
+		content: "\201C";
+	}
+	blockquote p::after {
+		content: "\201D";
+	}
+	.credit {
+		margin: 0.5rem 0 0;
+		font-size: 0.8125rem;
+		color: var(--slate);
+	}
+	.wiki img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		object-fit: cover;
+		border-radius: 0.4rem;
+		margin-block-end: 0.75rem;
+		background: var(--rule);
+	}
+	h3 {
+		margin: 0;
+		font-size: 1.0625rem;
+	}
+	.wiki p {
+		margin: 0.3rem 0 0;
+		font-size: 0.9375rem;
+	}
+	.wiki .on-this-day {
+		margin-block-start: 0.9rem;
+		padding-block-start: 0.75rem;
+		border-block-start: 2px dashed var(--rule);
+	}
+	.year {
+		font-weight: 700;
+	}
+</style>

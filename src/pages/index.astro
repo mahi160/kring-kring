@@ -1,0 +1,656 @@
+---
+import { getEmDashCollection, getSiteSettings } from "emdash";
+import AnnouncementBody from "../components/AnnouncementBody.astro";
+import Celebrations from "../components/Celebrations.astro";
+import DailyBits from "../components/DailyBits.astro";
+import NewsCard from "../components/NewsCard.astro";
+import TeaCard from "../components/TeaCard.astro";
+import QuizCard from "../components/QuizCard.astro";
+import ComicCard from "../components/ComicCard.astro";
+import DigestStrip from "../components/DigestStrip.astro";
+import AqiFace from "../components/AqiFace.astro";
+import WeatherIcon from "../components/WeatherIcon.astro";
+import { bannerTarget } from "../jobs/banner.ts";
+import { digestStore, ensureBanner, ensureDigest } from "../jobs/index.ts";
+import { portableTextToPlain } from "../jobs/digest.ts";
+import { dhakaDay, previousMonth } from "../comics/store.ts";
+import { comicStore, currentStaffId, dailyQuiz } from "../staff/index.ts";
+import { publicView } from "../staff/quiz.ts";
+import { todaysQuiz } from "../utils/quiz.ts";
+import Base from "../layouts/Base.astro";
+import { currentAnnouncements } from "../utils/announcements";
+import { upcomingAnniversaries, upcomingBirthdays } from "../utils/celebrations";
+import { getDailyJoke, getWikiDigest } from "../utils/daily";
+import {
+	formatDay,
+	formatMonth,
+	formatShortDate,
+	formatShortMonth,
+	formatTime,
+	formatWeekday,
+	greeting,
+	relativeDay,
+	weekdayQuip,
+} from "../utils/dates";
+import { eventEnd, upcomingEvents } from "../utils/events";
+import { getNews } from "../utils/news";
+import { isActive } from "../utils/people";
+import { teaStats } from "../utils/tea";
+import { resolveStarterSiteIdentity } from "../utils/site-identity";
+import { aqiMood, getDhakaAirQuality, getDhakaWeather } from "../utils/weather";
+
+const now = new Date();
+const MONTH_MS = 31 * 86_400_000;
+
+// No page cache: expiry is evaluated per request so expired items vanish on time.
+const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki, quiz, news] = await Promise.all([
+	getEmDashCollection("announcements", {
+		orderBy: { published_at: "desc" },
+		limit: 100,
+	}),
+	// ponytail: events that started over a month ago are skipped even if still running
+	getEmDashCollection("events", {
+		where: { starts_at: { gte: new Date(now.getTime() - MONTH_MS).toISOString() } },
+		orderBy: { starts_at: "asc" },
+		limit: 100,
+	}),
+	getEmDashCollection("people", { limit: 1000 }),
+	getDhakaWeather(),
+	getDhakaAirQuality(),
+	getDailyJoke(),
+	getWikiDigest(),
+	todaysQuiz(now),
+	getNews(),
+]);
+if (error) console.error("Failed to load announcements:", error);
+if (eventsResult.error) console.error("Failed to load events:", eventsResult.error);
+if (peopleResult.error) console.error("Failed to load people:", peopleResult.error);
+const events = upcomingEvents(eventsResult.entries, now, 4);
+const activePeople = peopleResult.entries.filter(isActive);
+const birthdays = upcomingBirthdays(activePeople, now);
+const anniversaries = upcomingAnniversaries(activePeople, now);
+const birthdayToday = birthdays.filter((b) => b.inDays === 0).map((b) => b.person.data.name);
+const hasCelebrations = birthdays.length + anniversaries.length > 0;
+const staffId = currentStaffId(Astro.cookies);
+const comics = comicStore();
+const today = dhakaDay(now);
+const comic = comics.latest(today);
+const comicCounts = comic ? comics.reactionCounts(comic.id) : { like: 0, laugh: 0 };
+const myComicReactions = comic && staffId ? comics.myReactions(comic.id, staffId) : { like: false, laugh: false };
+const comicOfMonth = today.slice(8) <= "07" ? comics.comicOfMonth(previousMonth(today)) : null;
+const quizQuestion = quiz.question;
+const quizStats = quizQuestion && quiz.clock.phase === "revealed" ? dailyQuiz().stats(quiz.clock.day, quizQuestion) : null;
+const myQuizChoice = quizQuestion && staffId ? dailyQuiz().answerOf(quiz.clock.day, staffId) : null;
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
+const DAY_MS = 86_400_000;
+
+const sameDay = (a: Date, b: Date) => formatShortDate(a) === formatShortDate(b);
+function eventWhen(e: (typeof events)[number]) {
+	const start = new Date(e.data.starts_at);
+	const end = e.data.ends_at ? eventEnd(e) : null;
+	const startText = start.getTime() <= now.getTime() ? "Happening now" : `${relativeDay(start, now)}, ${formatTime(start)}`;
+	if (!end) return startText;
+	return sameDay(start, end) ? `${startText} to ${formatTime(end)}` : `${startText}, until ${formatShortDate(end)}`;
+}
+const announcements = currentAnnouncements(entries, now);
+const pinned = announcements.filter((a) => a.data.pinned);
+const others = announcements.filter((a) => !a.data.pinned);
+
+// AI extras: the page only queues work (cheap DB writes); the background runner does it.
+ensureDigest(now, [
+	...announcements.slice(0, 5).map((a) => ({
+		kind: "announcement" as const,
+		title: a.data.title,
+		detail: portableTextToPlain(a.data.body).slice(0, 300),
+	})),
+	...events.map((e) => ({
+		kind: "event" as const,
+		title: e.data.title,
+		detail: [eventWhen(e), e.data.location, e.data.description].filter(Boolean).join("; "),
+	})),
+]);
+const digest = digestStore().forDay(today);
+
+const target = bannerTarget(now);
+const targetDate = new Date(now.getTime() + target.offset * DAY_MS);
+ensureBanner(
+	{
+		day: target.day,
+		weekday: formatWeekday(targetDate),
+		events: eventsResult.entries
+			.filter((e) => sameDay(new Date(e.data.starts_at), targetDate))
+			.map((e) => e.data.title),
+		birthdays: birthdays.filter((b) => b.inDays === target.offset).length,
+	},
+	now,
+);
+const { siteTitle, siteTagline } = resolveStarterSiteIdentity(await getSiteSettings());
+
+const iso = (d: Date) => d.toISOString();
+const posted = (a: (typeof announcements)[number]) => a.data.publishedAt ?? a.data.createdAt;
+const until = (a: (typeof announcements)[number]) =>
+	a.data.expires_at ? new Date(a.data.expires_at) : null;
+---
+
+<Base title={siteTitle} description={siteTagline} wide>
+	<section class="today" aria-label="Today">
+		<time class="calendar" datetime={iso(now)}>
+			<span class="cal-month">{formatMonth(now)}</span>
+			<span class="cal-day">{formatDay(now)}</span>
+			<span class="cal-weekday">{formatWeekday(now)}</span>
+		</time>
+		<div class="hello">
+			<h1 class="greeting">{greeting(now)}</h1>
+			<p class="quip">{weekdayQuip(now)}</p>
+			{
+				birthdayToday.length > 0 && (
+					<p class="party">Happy birthday, {listFormat.format(birthdayToday)}!</p>
+				)
+			}
+			{
+				(weather || air) && (
+					<div class="conditions">
+						{weather && (
+							<p class="weather">
+								<span class="sticker temp">{Math.round(weather.temperatureC)}°</span>
+								<WeatherIcon name={weather.icon} />
+								<span>
+									{weather.condition}
+									<span class="sub">in Dhaka right now</span>
+								</span>
+							</p>
+						)}
+						{air && (
+							<p class="weather">
+								<span class:list={["sticker", "aqi", air.aqi > 150 ? "bad" : air.aqi > 100 ? "meh" : "ok"]}>
+									<span class="visually-hidden">Air quality index </span>
+									{air.aqi}
+								</span>
+								<AqiFace mood={aqiMood(air.aqi)} />
+								<span>
+									Air: {air.level}
+									<span class="sub">{air.tip ?? "US AQI"}</span>
+								</span>
+							</p>
+						)}
+					</div>
+				)
+			}
+		</div>
+	</section>
+
+	<div class="layout">
+		<div class="main-col">
+		{digest && <DigestStrip lines={digest} />}
+		{
+			events.length > 0 && (
+				<section class="coming-up" aria-labelledby="coming-up-title">
+					<h2 id="coming-up-title" class="section-title">Coming up</h2>
+					<ol class="events" role="list">
+						{events.map((e) => {
+							const start = new Date(e.data.starts_at);
+							return (
+								<li class="event" data-event>
+									<time class="stub" datetime={iso(start)}>
+										<span class="stub-month">{formatShortMonth(start)}</span>
+										<span class="stub-day">{formatDay(start)}</span>
+									</time>
+									<div class="event-text">
+										<h3 {...e.edit.title}>{e.data.title}</h3>
+										<p class="event-when">{eventWhen(e)}</p>
+										{e.data.location && <p class="event-where">{e.data.location}</p>}
+										{e.data.description && <p class="event-desc">{e.data.description}</p>}
+									</div>
+								</li>
+							);
+						})}
+					</ol>
+				</section>
+			)
+		}
+
+	<section class="board" aria-labelledby="board-title">
+	<h2 id="board-title" class="section-title">On the board</h2>
+
+	{
+		error ? (
+			<p class="board-note">
+				Announcements couldn't be loaded. Refresh the page in a minute; if it keeps failing, tell the
+				office admin.
+			</p>
+		) : announcements.length === 0 ? (
+			<p class="board-note">The board is empty. Enjoy the quiet; new announcements land here the moment they're published.</p>
+		) : (
+			<>
+				{pinned.length > 0 && (
+					<ol class="notes" role="list">
+						{pinned.map((a) => {
+							const end = until(a);
+							return (
+								<li class="note" data-announcement>
+									<article>
+										<h3 {...a.edit.title}>{a.data.title}</h3>
+										<p class="meta">
+											<span class="visually-hidden">Pinned.</span>
+											<span>
+												Posted <time datetime={iso(posted(a))}>{formatShortDate(posted(a))}</time>
+											</span>
+											{end && (
+												<span>
+													Until <time datetime={iso(end)}>{formatShortDate(end)}</time>
+												</span>
+											)}
+										</p>
+										<AnnouncementBody body={a.data.body} />
+									</article>
+								</li>
+							);
+						})}
+					</ol>
+				)}
+				{others.length > 0 && (
+					<ol class="slips" role="list">
+						{others.map((a) => {
+							const end = until(a);
+							return (
+								<li class="slip" data-announcement>
+									<article>
+										<h3 {...a.edit.title}>{a.data.title}</h3>
+										<p class="meta">
+											<span>
+												Posted <time datetime={iso(posted(a))}>{formatShortDate(posted(a))}</time>
+											</span>
+											{end && (
+												<span>
+													Until <time datetime={iso(end)}>{formatShortDate(end)}</time>
+												</span>
+											)}
+										</p>
+										<AnnouncementBody body={a.data.body} />
+									</article>
+								</li>
+							);
+						})}
+					</ol>
+				)}
+			</>
+		)
+	}
+	</section>
+		<ComicCard comic={comic} counts={comicCounts} mine={myComicReactions} signedIn={!!staffId} winner={comicOfMonth} />
+		<NewsCard news={news} />
+		</div>
+
+		<aside class="aside" aria-label="Around the office">
+			<QuizCard
+				clock={quiz.clock}
+				quiz={quizQuestion && publicView(quizQuestion, quiz.clock.phase)}
+				signedIn={!!staffId}
+				myChoice={myQuizChoice}
+				stats={quizStats}
+			/>
+			{hasCelebrations && <Celebrations birthdays={birthdays} anniversaries={anniversaries} now={now} />}
+			<TeaCard stats={teaStats.latest()} />
+			<DailyBits joke={joke} wiki={wiki} />
+		</aside>
+	</div>
+</Base>
+
+<style>
+	/* ---- Today: a tear-off desk calendar and a greeting ---- */
+	.today {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1.5rem 2.25rem;
+		padding-block: clamp(2rem, 1rem + 3vw, 3.5rem) 2.5rem;
+	}
+
+	.calendar {
+		position: relative;
+		display: grid;
+		justify-items: center;
+		width: 9.5rem;
+		padding-block-end: 0.9rem;
+		background: var(--sheet);
+		border-radius: 0.6rem;
+		box-shadow:
+			0 1px 0 var(--rule),
+			0 0.35rem 0 -0.15rem var(--sheet),
+			0 0.35rem 0 -0.05rem var(--rule),
+			0 0.75rem 1.5rem -0.75rem rgb(22 32 27 / 0.25);
+		rotate: -3deg;
+		font-family: var(--font-display);
+		text-align: center;
+	}
+	/* Binder rings */
+	.calendar::before,
+	.calendar::after {
+		content: "";
+		position: absolute;
+		inset-block-start: -0.45rem;
+		width: 0.55rem;
+		height: 1.1rem;
+		border-radius: 1rem;
+		background: var(--ink);
+	}
+	.calendar::before {
+		inset-inline-start: 2.2rem;
+	}
+	.calendar::after {
+		inset-inline-end: 2.2rem;
+	}
+	.cal-month {
+		width: 100%;
+		padding-block: 0.55rem 0.35rem;
+		border-radius: 0.6rem 0.6rem 0 0;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-size: 1.25rem;
+		font-weight: 700;
+		letter-spacing: 0.02em;
+	}
+	.cal-day {
+		font-size: 5.5rem;
+		font-weight: 800;
+		line-height: 1;
+		margin-block-start: 0.35rem;
+	}
+	.cal-weekday {
+		font-family: var(--font-body);
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: var(--slate);
+	}
+
+	.hello {
+		flex: 1 1 16rem;
+	}
+	.greeting {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: clamp(2.75rem, 1.75rem + 4vw, 4.75rem);
+		line-height: 0.95;
+	}
+	.quip {
+		margin: 0.6rem 0 0;
+		font-size: 1.25rem;
+		font-weight: 700;
+	}
+	.party {
+		display: inline-block;
+		margin: 0.9rem 0 0;
+		padding: 0.35rem 0.9rem;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-weight: 700;
+		rotate: -1.5deg;
+	}
+	.conditions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 2rem;
+		margin-block-start: 1rem;
+	}
+	.weather {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 0;
+		line-height: 1.3;
+	}
+	/* Round stickers, like the pushpins */
+	.sticker {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 3.5rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background: var(--note-yellow);
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: 1.6rem;
+		rotate: 8deg;
+		font-variant-numeric: tabular-nums;
+	}
+	.aqi {
+		font-size: 1.35rem;
+		rotate: -6deg;
+	}
+	.aqi.ok {
+		background: var(--note-mint);
+	}
+	.aqi.meh {
+		background: var(--note-pink);
+	}
+	.aqi.bad {
+		background: var(--accent-ink);
+		color: var(--on-accent);
+	}
+	.sub {
+		display: block;
+		font-size: 0.875rem;
+		color: var(--slate);
+	}
+
+	/* ---- Coming up: events as ticket stubs ---- */
+	.coming-up {
+		margin-block-end: 2.75rem;
+	}
+
+	/* ---- Main column + aside ---- */
+	.layout {
+		display: grid;
+		gap: 3rem 2.5rem;
+	}
+	.main-col {
+		min-width: 0;
+	}
+	.aside {
+		display: grid;
+		align-content: start;
+		gap: 2.25rem;
+	}
+	@media (min-width: 60rem) {
+		.layout {
+			grid-template-columns: minmax(0, 1fr) 20rem;
+		}
+	}
+	.events {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+		gap: 1rem;
+	}
+	.event {
+		display: flex;
+		background: var(--sheet);
+		border-radius: 0.6rem;
+		box-shadow: 0 0.4rem 0.8rem -0.5rem rgb(22 32 27 / 0.25);
+	}
+	.stub {
+		display: grid;
+		align-content: center;
+		justify-items: center;
+		flex: none;
+		width: 4.5rem;
+		padding-block: 0.75rem;
+		border-inline-end: 2px dashed var(--rule);
+		font-family: var(--font-display);
+	}
+	.stub-month {
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--accent-ink);
+	}
+	.stub-day {
+		font-size: 2.25rem;
+		font-weight: 800;
+		line-height: 1;
+	}
+	.event-text {
+		min-width: 0;
+		padding: 0.9rem 1.1rem;
+	}
+	.event h3 {
+		margin: 0;
+		font-size: 1.0625rem;
+	}
+	.event-when,
+	.event-where,
+	.event-desc {
+		margin: 0.2rem 0 0;
+		font-size: 0.875rem;
+	}
+	.event-when {
+		font-weight: 700;
+	}
+	.event-where,
+	.event-desc {
+		color: var(--slate);
+	}
+
+	/* ---- The board ---- */
+	.section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 0 0 1.25rem;
+		font-size: 1.375rem;
+	}
+	.board .section-title {
+		margin-block-end: 1.75rem;
+	}
+	.section-title::after {
+		content: "";
+		flex: 1;
+		border-block-start: 2px dashed var(--rule);
+	}
+
+	.board-note {
+		margin: 0;
+		padding: 1.5rem;
+		border: 2px dashed var(--rule);
+		border-radius: 0.75rem;
+		color: var(--slate);
+		font-size: 1.125rem;
+	}
+
+	.notes,
+	.slips {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	/* Pinned: sticky notes, each with a pushpin, slightly askew. */
+	.notes {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+		gap: 2rem 1.5rem;
+		margin-block-end: 2.5rem;
+	}
+	.note {
+		--tilt: -1.5deg;
+		position: relative;
+		padding: 1.75rem 1.5rem 1.5rem;
+		background: var(--note, var(--note-yellow));
+		border-radius: 0.2rem 0.2rem 0.9rem 0.2rem;
+		box-shadow: 0 0.6rem 1rem -0.6rem rgb(22 32 27 / 0.35);
+		rotate: var(--tilt);
+		transition: rotate 180ms ease, translate 180ms ease, box-shadow 180ms ease;
+	}
+	.note:nth-child(4n + 2) {
+		--note: var(--note-mint);
+		--tilt: 1.25deg;
+	}
+	.note:nth-child(4n + 3) {
+		--note: var(--note-pink);
+		--tilt: -0.75deg;
+	}
+	.note:nth-child(4n + 4) {
+		--note: var(--note-sky);
+		--tilt: 1.75deg;
+	}
+	/* Pushpin */
+	.note::before {
+		content: "";
+		position: absolute;
+		inset-block-start: -0.55rem;
+		inset-inline-start: 50%;
+		translate: -50% 0;
+		width: 1.1rem;
+		height: 1.1rem;
+		border-radius: 50%;
+		background: radial-gradient(circle at 35% 35%, var(--accent-soft) 0 22%, var(--accent) 26%);
+		box-shadow: 0 0.2rem 0.25rem rgb(22 32 27 / 0.35);
+	}
+
+	/* Regular: paper slips held by a strip of tape. */
+	.slips {
+		display: grid;
+		gap: 1.5rem;
+	}
+	.slip {
+		position: relative;
+		padding: 1.5rem;
+		background: var(--sheet);
+		border-radius: 0.4rem;
+		box-shadow: 0 0.4rem 0.8rem -0.5rem rgb(22 32 27 / 0.25);
+		transition: translate 180ms ease, box-shadow 180ms ease;
+	}
+	.slip::before {
+		content: "";
+		position: absolute;
+		inset-block-start: -0.6rem;
+		inset-inline-start: 1.25rem;
+		width: 4.5rem;
+		height: 1.2rem;
+		background: color-mix(in srgb, var(--highlight) 45%, transparent);
+		rotate: -4deg;
+	}
+	.slip:nth-child(even)::before {
+		inset-inline-start: auto;
+		inset-inline-end: 1.5rem;
+		rotate: 3deg;
+		background: color-mix(in srgb, var(--accent) 30%, transparent);
+	}
+
+	@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+		.note:hover {
+			rotate: 0deg;
+			translate: 0 -0.2rem;
+			box-shadow: 0 1rem 1.25rem -0.75rem rgb(22 32 27 / 0.4);
+		}
+		.slip:hover {
+			translate: 0 -0.15rem;
+			box-shadow: 0 0.75rem 1rem -0.6rem rgb(22 32 27 / 0.3);
+		}
+	}
+
+	.note h3,
+	.slip h3 {
+		margin: 0;
+		font-size: 1.25rem;
+		font-weight: 700;
+	}
+
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		margin: 0.35rem 0 0;
+		font-size: 0.875rem;
+		color: var(--slate);
+		font-variant-numeric: tabular-nums;
+	}
+	.note .meta {
+		color: color-mix(in srgb, var(--ink) 75%, transparent);
+	}
+
+</style>

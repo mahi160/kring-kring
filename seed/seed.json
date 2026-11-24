@@ -1,0 +1,496 @@
+{
+	"$schema": "https://emdashcms.com/seed.schema.json",
+	"version": "1",
+	"meta": {
+		"name": "Starter",
+		"description": "A minimal EmDash starter with posts and pages",
+		"author": "EmDash"
+	},
+	"settings": {
+		"title": "Office Hub",
+		"tagline": "News and announcements for the office"
+	},
+	"collections": [
+		{
+			"slug": "announcements",
+			"label": "Announcements",
+			"labelSingular": "Announcement",
+			"icon": "megaphone",
+			"routable": false,
+			"sortOrder": 1,
+			"supports": ["drafts", "revisions"],
+			"admin": { "listColumns": ["title", "pinned", "expires_at"] },
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "body",
+					"label": "Body",
+					"type": "portableText"
+				},
+				{
+					"slug": "pinned",
+					"label": "Pinned",
+					"type": "boolean",
+					"defaultValue": false,
+					"indexed": true
+				},
+				{
+					"slug": "expires_at",
+					"label": "Expires at",
+					"type": "datetime",
+					"indexed": true
+				}
+			]
+		},
+		{
+			"slug": "events",
+			"label": "Events",
+			"labelSingular": "Event",
+			"icon": "calendar",
+			"routable": false,
+			"sortOrder": 2,
+			"supports": ["drafts", "revisions"],
+			"admin": { "listColumns": ["title", "starts_at", "location"] },
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "starts_at",
+					"label": "Starts at",
+					"type": "datetime",
+					"required": true,
+					"indexed": true
+				},
+				{
+					"slug": "ends_at",
+					"label": "Ends at",
+					"type": "datetime"
+				},
+				{
+					"slug": "location",
+					"label": "Location",
+					"type": "string"
+				},
+				{
+					"slug": "description",
+					"label": "Description",
+					"type": "text"
+				}
+			]
+		},
+		{
+			"slug": "people",
+			"label": "People",
+			"labelSingular": "Person",
+			"description": "Everyone at the office. The single source for staff identity.",
+			"icon": "users",
+			"routable": false,
+			"sortOrder": 3,
+			"supports": ["drafts", "revisions"],
+			"titleField": "name",
+			"admin": { "listColumns": ["name", "team", "active", "birthday_month"] },
+			"fields": [
+				{
+					"slug": "name",
+					"label": "Name",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "team",
+					"label": "Team",
+					"type": "string"
+				},
+				{
+					"slug": "photo",
+					"label": "Photo",
+					"type": "image"
+				},
+				{
+					"slug": "birthday_month",
+					"label": "Birthday month",
+					"type": "select",
+					"validation": {
+						"options": [
+							"January",
+							"February",
+							"March",
+							"April",
+							"May",
+							"June",
+							"July",
+							"August",
+							"September",
+							"October",
+							"November",
+							"December"
+						]
+					}
+				},
+				{
+					"slug": "birthday_day",
+					"label": "Birthday day",
+					"type": "integer",
+					"validation": { "min": 1, "max": 31 }
+				},
+				{
+					"slug": "hide_birthday",
+					"label": "Hide birthday on the hub",
+					"type": "boolean",
+					"defaultValue": false
+				},
+				{
+					"slug": "joined_on",
+					"label": "Joined on",
+					"type": "datetime"
+				},
+				{
+					"slug": "phone",
+					"label": "Phone",
+					"type": "string"
+				},
+				{
+					"slug": "bio",
+					"label": "Short bio",
+					"type": "text",
+					"validation": { "maxLength": 280 }
+				},
+				{
+					"slug": "active",
+					"label": "Currently works here",
+					"type": "boolean",
+					"defaultValue": true
+				}
+			]
+		},
+		{
+			"slug": "quiz_questions",
+			"label": "Quiz questions",
+			"labelSingular": "Quiz question",
+			"description": "The daily quiz bank. Each working day (Sun–Thu) one published, approved question runs 10:00–18:00; unused questions go first, oldest first.",
+			"icon": "trophy",
+			"routable": false,
+			"sortOrder": 4,
+			"supports": ["drafts", "revisions"],
+			"titleField": "question",
+			"admin": { "listColumns": ["question", "approved"] },
+			"fields": [
+				{
+					"slug": "question",
+					"label": "Question",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "choices",
+					"label": "Choices (2 to 4)",
+					"type": "repeater",
+					"required": true,
+					"validation": {
+						"minItems": 2,
+						"maxItems": 4,
+						"subFields": [{ "slug": "label", "label": "Choice", "type": "string", "required": true }]
+					}
+				},
+				{
+					"slug": "correct_choice",
+					"label": "Correct choice (1 = first)",
+					"type": "integer",
+					"required": true,
+					"validation": { "min": 1, "max": 4 }
+				},
+				{
+					"slug": "explanation",
+					"label": "Explanation (shown after 18:00)",
+					"type": "text"
+				},
+				{
+					"slug": "approved",
+					"label": "Approved for the quiz",
+					"type": "boolean",
+					"defaultValue": false
+				}
+			]
+		},
+		{
+			"slug": "handbook",
+			"label": "Handbook",
+			"labelSingular": "Handbook page",
+			"description": "The office code book: rules, policies and how-tos, shown at /handbook.",
+			"icon": "book",
+			"urlPattern": "/handbook/{slug}",
+			"sortOrder": 5,
+			"supports": ["drafts", "revisions"],
+			"admin": { "listColumns": ["title", "topic", "order"] },
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "topic",
+					"label": "Topic",
+					"type": "select",
+					"required": true,
+					"indexed": true,
+					"validation": {
+						"options": [
+							"Office basics",
+							"Working hours & leave",
+							"Tech & accounts",
+							"Kitchen & tea",
+							"Safety",
+							"Culture"
+						]
+					}
+				},
+				{
+					"slug": "order",
+					"label": "Order within topic (lowest first)",
+					"type": "integer"
+				},
+				{
+					"slug": "summary",
+					"label": "Summary (one line, shown in the contents)",
+					"type": "text",
+					"validation": { "maxLength": 160 }
+				},
+				{
+					"slug": "content",
+					"label": "Content",
+					"type": "portableText",
+					"required": true
+				}
+			]
+		},
+		{
+			"slug": "gallery",
+			"label": "Gallery",
+			"labelSingular": "Photo",
+			"description": "Office photos shown on the wall at /gallery. Staff can add photos there too; delete unwanted ones here.",
+			"icon": "image",
+			"routable": false,
+			"sortOrder": 6,
+			"supports": ["drafts", "revisions"],
+			"admin": { "listColumns": ["caption", "uploaded_by", "featured"] },
+			"fields": [
+				{
+					"slug": "photo",
+					"label": "Photo",
+					"type": "image",
+					"required": true
+				},
+				{
+					"slug": "caption",
+					"label": "Caption",
+					"type": "string",
+					"validation": { "maxLength": 140 }
+				},
+				{
+					"slug": "uploaded_by",
+					"label": "Shared by (name)",
+					"type": "string"
+				},
+				{
+					"slug": "featured",
+					"label": "Show big on the wall",
+					"type": "boolean",
+					"defaultValue": false
+				}
+			]
+		},
+		{
+			"slug": "posts",
+			"label": "Posts",
+			"labelSingular": "Post",
+			"urlPattern": "/posts/{slug}",
+			"supports": ["drafts", "revisions", "preview", "search", "seo"],
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true,
+					"searchable": true
+				},
+				{
+					"slug": "featured_image",
+					"label": "Featured Image",
+					"type": "image"
+				},
+				{
+					"slug": "content",
+					"label": "Content",
+					"type": "portableText",
+					"searchable": true
+				},
+				{
+					"slug": "excerpt",
+					"label": "Excerpt",
+					"type": "text"
+				}
+			]
+		},
+		{
+			"slug": "pages",
+			"label": "Pages",
+			"labelSingular": "Page",
+			"urlPattern": "/{slug}",
+			"supports": ["drafts", "revisions", "preview", "search", "seo"],
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true,
+					"searchable": true
+				},
+				{
+					"slug": "content",
+					"label": "Content",
+					"type": "portableText",
+					"searchable": true
+				}
+			]
+		}
+	],
+	"taxonomies": [
+		{
+			"name": "category",
+			"label": "Categories",
+			"labelSingular": "Category",
+			"hierarchical": true,
+			"collections": ["posts"],
+			"terms": [
+				{
+					"slug": "general",
+					"label": "General"
+				},
+				{
+					"slug": "updates",
+					"label": "Updates"
+				}
+			]
+		},
+		{
+			"name": "tag",
+			"label": "Tags",
+			"labelSingular": "Tag",
+			"hierarchical": false,
+			"collections": ["posts"],
+			"terms": [
+				{
+					"slug": "starter",
+					"label": "Starter"
+				},
+				{
+					"slug": "example",
+					"label": "Example"
+				}
+			]
+		}
+	],
+	"content": {
+		"announcements": [
+			{
+				"id": "welcome-to-the-hub",
+				"status": "published",
+				"data": {
+					"title": "Welcome to the office hub",
+					"pinned": true,
+					"body": [
+						{
+							"_type": "block",
+							"style": "normal",
+							"children": [
+								{
+									"_type": "span",
+									"text": "Office news and announcements show up here.",
+									"_key": "a1"
+								}
+							],
+							"_key": "a0"
+						}
+					]
+				}
+			}
+		],
+		"handbook": [
+			{
+				"id": "how-this-handbook-works",
+				"slug": "how-this-handbook-works",
+				"status": "published",
+				"data": {
+					"title": "How this handbook works",
+					"topic": "Office basics",
+					"order": 1,
+					"summary": "What lives here and how to suggest a change.",
+					"content": [
+						{ "_type": "block", "_key": "h1a", "style": "normal", "children": [{ "_type": "span", "_key": "h1a1", "text": "The code book is the one place for office rules, policies and how-tos. If something here is out of date, tell the office manager." }] },
+						{ "_type": "block", "_key": "h1b", "style": "h2", "children": [{ "_type": "span", "_key": "h1b1", "text": "Finding things" }] },
+						{ "_type": "block", "_key": "h1c", "style": "normal", "listItem": "bullet", "level": 1, "children": [{ "_type": "span", "_key": "h1c1", "text": "Pages are grouped by topic on the contents page." }] },
+						{ "_type": "block", "_key": "h1d", "style": "normal", "listItem": "bullet", "level": 1, "children": [{ "_type": "span", "_key": "h1d1", "text": "Use the search box to filter by title or summary." }] }
+					]
+				}
+			},
+			{
+				"id": "office-hours",
+				"slug": "office-hours",
+				"status": "published",
+				"data": {
+					"title": "Office hours",
+					"topic": "Working hours & leave",
+					"order": 1,
+					"summary": "When the office is open and when to be reachable.",
+					"content": [
+						{ "_type": "block", "_key": "h2a", "style": "normal", "children": [{ "_type": "span", "_key": "h2a1", "text": "The office works Sunday to Thursday, 10:00 to 18:00. Be reachable during these hours." }] },
+						{ "_type": "block", "_key": "h2b", "style": "blockquote", "children": [{ "_type": "span", "_key": "h2b1", "text": "Running late or leaving early? Let your team know before, not after." }] }
+					]
+				}
+			},
+			{
+				"id": "wifi-and-accounts",
+				"slug": "wifi-and-accounts",
+				"status": "published",
+				"data": {
+					"title": "Wi-Fi and accounts",
+					"topic": "Tech & accounts",
+					"order": 1,
+					"summary": "Getting online and keeping your accounts safe.",
+					"content": [
+						{ "_type": "block", "_key": "h3a", "style": "h2", "children": [{ "_type": "span", "_key": "h3a1", "text": "Getting online" }] },
+						{ "_type": "block", "_key": "h3b", "style": "normal", "children": [{ "_type": "span", "_key": "h3b1", "text": "Ask the office manager for the guest and staff Wi-Fi details. Never share the staff password with visitors." }] },
+						{ "_type": "block", "_key": "h3c", "style": "h2", "children": [{ "_type": "span", "_key": "h3c1", "text": "Passwords" }] },
+						{ "_type": "block", "_key": "h3d", "style": "normal", "listItem": "number", "level": 1, "children": [{ "_type": "span", "_key": "h3d1", "text": "Use a password manager." }] },
+						{ "_type": "block", "_key": "h3e", "style": "normal", "listItem": "number", "level": 1, "children": [{ "_type": "span", "_key": "h3e1", "text": "Never reuse a password across accounts." }] }
+					]
+				}
+			},
+			{
+				"id": "tea-etiquette",
+				"slug": "tea-etiquette",
+				"status": "published",
+				"data": {
+					"title": "Tea etiquette",
+					"topic": "Kitchen & tea",
+					"order": 1,
+					"summary": "Small rules that keep the kitchen pleasant.",
+					"content": [
+						{ "_type": "block", "_key": "h4a", "style": "normal", "children": [{ "_type": "span", "_key": "h4a1", "text": "Wash your own cup. If you finish the milk, tell someone. Offer a cup to the person next to you when you make one." }] }
+					]
+				}
+			}
+		]
+	}
+}

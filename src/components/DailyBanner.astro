@@ -1,0 +1,35 @@
+---
+interface Props {
+	/** Generated image for today, or null for the plain striped backdrop. */
+	src: string | null;
+}
+
+const { src } = Astro.props;
+---
+
+<div class:list={["banner", !src && "plain"]} data-banner={src ? "image" : "fallback"} aria-hidden="true">
+	{src && <img src={src} alt="" width="768" height="256" decoding="async" fetchpriority="high" />}
+</div>
+
+<style>
+	/* Backdrop for the homepage header; Base.astro sizes and rounds it. */
+	.banner {
+		position: absolute;
+		inset: 0;
+		background: var(--banner-a);
+	}
+	.banner img {
+		display: block;
+		inline-size: 100%;
+		block-size: 100%;
+		object-fit: cover;
+	}
+	/* Fallback: confetti-ish stripes in the hub's palette, no image needed. */
+	.plain {
+		background:
+			radial-gradient(circle at 20% 70%, var(--note-pink) 0 0.6rem, transparent 0.65rem),
+			radial-gradient(circle at 80% 35%, var(--note-sky) 0 0.75rem, transparent 0.8rem),
+			radial-gradient(circle at 62% 65%, var(--note-mint) 0 0.45rem, transparent 0.5rem),
+			repeating-linear-gradient(-45deg, var(--banner-a) 0 1rem, var(--banner-b) 1rem 2rem);
+	}
+</style>

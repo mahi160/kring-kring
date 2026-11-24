@@ -1,0 +1,21 @@
+[Unit]
+Description=Office hub (EmDash)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hub
+Group=hub
+# ./data (SQLite DB + uploads) resolves against this directory.
+WorkingDirectory=/opt/hub
+EnvironmentFile=/etc/hub/hub.env
+# Caddy (infra/Caddyfile) serves :80/:443 and proxies here.
+Environment=HOST=127.0.0.1 PORT=3000
+ExecStart=/usr/bin/node /opt/hub/app/dist/server/entry.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

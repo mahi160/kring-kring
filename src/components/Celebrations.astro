@@ -1,0 +1,365 @@
+---
+import { Image } from "emdash/ui";
+import type { People as Person } from "../../emdash-env";
+import type { Celebration } from "../utils/celebrations";
+import { formatShortDate, relativeDay } from "../utils/dates";
+
+interface Props {
+	birthdays: Celebration<{ data: Person }>[];
+	anniversaries: (Celebration<{ data: Person }> & { years: number })[];
+	now: Date;
+}
+
+const { birthdays, anniversaries, now } = Astro.props;
+const when = (c: { inDays: number; on: Date }) =>
+	c.inDays < 2 ? relativeDay(c.on, now) : `${relativeDay(c.on, now)} ${formatShortDate(c.on)}`;
+const initials = (name: string) =>
+	name
+		.split(/\s+/)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((w) => w[0]?.toUpperCase())
+		.join("");
+const items = [
+	...birthdays.map((c) => ({
+		...c,
+		what: "Birthday",
+		kind: "birthday" as const,
+		headline: `Happy birthday, ${c.person.data.name}!`,
+	})),
+	...anniversaries.map((c) => ({
+		...c,
+		headline: `Happy ${c.years}-year work anniversary, ${c.person.data.name}!`,
+		what: `${c.years} ${c.years === 1 ? "year" : "years"} with us`,
+		kind: "anniversary" as const,
+	})),
+].sort((a, b) => a.inDays - b.inDays);
+// Decorative confetti: fixed positions so server renders are stable.
+const confetti = Array.from({ length: 18 }, (_, i) => ({
+	left: (i * 37) % 100,
+	top: (i * 53 + 11) % 100,
+	size: 0.6 + ((i * 7) % 5) * 0.25,
+	turn: (i * 47) % 180,
+	color: ["--accent", "--highlight", "--note-mint", "--note-sky", "--note-pink"][i % 5],
+	round: i % 3 === 0,
+}));
+---
+
+<section class="card celebrations" aria-labelledby="celebrations-title">
+	<h2 id="celebrations-title" class="card-title">Celebrations</h2>
+	<ul role="list">
+		{
+			items.map((c, i) => (
+				<li class:list={[c.kind, { today: c.inDays === 0 }]} data-celebration>
+					{c.person.data.photo ? (
+						<Image image={c.person.data.photo} alt="" width={48} height={48} class="avatar" />
+					) : (
+						<span class="avatar" aria-hidden="true">
+							{initials(c.person.data.name)}
+						</span>
+					)}
+					<button type="button" class="who" data-card-open={`card-${i}`}>
+						<span class="name">{c.person.data.name}</span>
+						<span class="what">
+							{c.what} · <time datetime={c.on.toISOString().slice(0, 10)}>{when(c)}</time>
+						</span>
+						<span class="visually-hidden">Open greeting card</span>
+					</button>
+				</li>
+			))
+		}
+	</ul>
+	{
+		items.map((c, i) => (
+			<dialog id={`card-${i}`} class:list={["greeting-card", c.kind]} aria-labelledby={`card-${i}-title`}>
+				<div class="paper">
+				<div class="confetti" aria-hidden="true">
+					{confetti.map((k) => (
+						<span
+							class:list={["bit", { round: k.round }]}
+							style={`left:${k.left}%;top:${k.top}%;width:${k.size}rem;height:${k.size}rem;rotate:${k.turn}deg;background:var(${k.color})`}
+						/>
+					))}
+				</div>
+					{c.person.data.photo ? (
+						<Image image={c.person.data.photo} alt="" width={160} height={160} class="portrait" />
+					) : (
+						<span class="portrait" aria-hidden="true">
+							{initials(c.person.data.name)}
+						</span>
+					)}
+					<h3 id={`card-${i}-title`}>{c.headline}</h3>
+					<p class="date">
+						<time datetime={c.on.toISOString().slice(0, 10)}>{formatShortDate(c.on)}</time>
+					</p>
+					<p class="from">From all of us at the office</p>
+					<ul class="signatures" role="list">
+						{Array.from({ length: 6 }, () => (
+							<li>
+								<span>Sign here</span>
+							</li>
+						))}
+					</ul>
+				</div>
+				<div class="actions">
+					<button type="button" data-card-print>Print card</button>
+					<button type="button" data-card-close>Close</button>
+				</div>
+			</dialog>
+		))
+	}
+</section>
+
+<script>
+	for (const opener of document.querySelectorAll<HTMLButtonElement>("[data-card-open]")) {
+		opener.addEventListener("click", () => {
+			const dialog = document.getElementById(opener.dataset.cardOpen ?? "");
+			if (!(dialog instanceof HTMLDialogElement)) return;
+			dialog.addEventListener("close", () => opener.focus(), { once: true });
+			dialog.showModal();
+		});
+	}
+	for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog.greeting-card")) {
+		dialog.querySelector("[data-card-close]")?.addEventListener("click", () => dialog.close());
+		dialog.querySelector("[data-card-print]")?.addEventListener("click", () => window.print());
+	}
+</script>
+
+<style>
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.5rem;
+	}
+	li {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.4rem;
+		border-radius: 0.6rem;
+	}
+	/* Today's people get the party treatment */
+	li.today {
+		background: var(--note-pink);
+		rotate: -1deg;
+	}
+	li.today.anniversary {
+		background: var(--note-sky);
+	}
+	.avatar {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 3rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		object-fit: cover;
+		background: var(--note-mint);
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: 1.125rem;
+	}
+	.birthday .avatar:not(img) {
+		background: var(--note-yellow);
+	}
+	.who {
+		display: grid;
+		flex: 1;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		line-height: 1.3;
+		text-align: start;
+		cursor: pointer;
+	}
+	.who:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	.name {
+		font-weight: 700;
+		overflow-wrap: break-word;
+	}
+	.what {
+		font-size: 0.875rem;
+		color: var(--slate);
+	}
+	.today .what {
+		color: var(--ink);
+		font-weight: 700;
+	}
+</style>
+
+<style>
+	.greeting-card {
+		position: fixed;
+		width: min(100% - 2rem, 48rem);
+		max-height: calc(100dvh - 2rem);
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+		overflow: auto;
+	}
+	.greeting-card::backdrop {
+		background: rgb(22 32 27 / 0.6);
+	}
+	.paper {
+		position: relative;
+		display: grid;
+		justify-items: center;
+		gap: 0.75rem;
+		margin: 1rem;
+		padding: clamp(1.5rem, 1rem + 3vw, 3rem) clamp(1rem, 0.5rem + 3vw, 3rem);
+		border: 0.5rem solid var(--highlight);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		text-align: center;
+	}
+	.anniversary .paper {
+		border-color: var(--accent);
+	}
+	.confetti {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.paper > :not(.confetti) {
+		position: relative;
+	}
+	.bit {
+		position: absolute;
+		opacity: 0.7;
+	}
+	.bit.round {
+		border-radius: 50%;
+	}
+	.portrait {
+		display: grid;
+		place-items: center;
+		width: 8rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		border: 0.3rem solid var(--note-yellow);
+		object-fit: cover;
+		background: var(--note-mint);
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: 2.5rem;
+	}
+	h3 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: clamp(1.75rem, 1.25rem + 2.5vw, 3rem);
+		line-height: 1.1;
+		overflow-wrap: break-word;
+	}
+	.date,
+	.from {
+		margin: 0;
+	}
+	.date {
+		color: var(--slate);
+		font-weight: 700;
+	}
+	.from {
+		font-size: 1.25rem;
+		font-weight: 700;
+	}
+	.signatures {
+		list-style: none;
+		margin: 0.5rem 0 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1.75rem 1.5rem;
+		width: 100%;
+	}
+	@media (min-width: 36rem) {
+		.signatures {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+	.signatures li {
+		padding-block-start: 1.75rem;
+		border-block-end: 2px solid var(--ink);
+		text-align: start;
+	}
+	.signatures span {
+		font-size: 0.75rem;
+		color: var(--slate);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 0 1rem 1rem;
+	}
+	.actions button {
+		padding: 0.5rem 1.25rem;
+		border: 2px solid var(--ink);
+		border-radius: 999px;
+		background: var(--sheet);
+		color: var(--ink);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.actions button[data-card-print] {
+		border-color: var(--accent-ink);
+		background: var(--accent-ink);
+		color: var(--on-accent);
+	}
+	.actions button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+</style>
+
+<style is:global>
+	@media print {
+		@page {
+			size: A4 landscape;
+			margin: 0;
+		}
+		/* :where() keeps this at zero specificity so the card's "visible" rule wins */
+		:where(body:has(dialog.greeting-card[open])) * {
+			visibility: hidden;
+		}
+		body:has(dialog.greeting-card[open]) {
+			background: none;
+		}
+		dialog.greeting-card[open],
+		dialog.greeting-card[open] * {
+			visibility: visible;
+		}
+		dialog.greeting-card[open] {
+			inset: 0;
+			width: 100vw;
+			max-width: none;
+			height: 100vh;
+			max-height: none;
+			margin: 0;
+			border-radius: 0;
+			overflow: hidden;
+			print-color-adjust: exact;
+			-webkit-print-color-adjust: exact;
+		}
+		dialog.greeting-card[open] .paper {
+			min-height: calc(100vh - 2rem);
+			align-content: center;
+		}
+		dialog.greeting-card[open] .actions {
+			display: none;
+		}
+	}
+</style>

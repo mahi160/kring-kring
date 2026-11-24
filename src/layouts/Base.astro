@@ -1,0 +1,239 @@
+---
+import { getEmDashEntry, getSiteSettingsWithCacheHint } from "emdash";
+import { currentStaffId, hubSettings } from "../staff/index.ts";
+import { EmDashHead, EmDashBodyStart, EmDashBodyEnd } from "emdash/ui";
+import { createPublicPageContext } from "emdash/page";
+import { Font } from "astro:assets";
+import { resolveStarterSiteIdentity } from "../utils/site-identity";
+import { THEME_SETTING_KEY, resolveTheme, themeById } from "../utils/theme";
+import DailyBanner from "../components/DailyBanner.astro";
+import { bannerSrc } from "../jobs/banner.ts";
+import { bannerStore } from "../jobs/index.ts";
+import { dhakaDay } from "../comics/store.ts";
+import "../styles/theme.css";
+import "../styles/themes.css";
+
+interface Props {
+	title: string;
+	pageTitle?: string | null;
+	description?: string | null;
+	image?: string | null;
+	canonical?: string | null;
+	/** Pass content reference for plugin page contributions on content pages */
+	content?: { collection: string; id: string; slug?: string | null };
+	/** Dashboard-width page (main column plus aside) instead of a reading column */
+	wide?: boolean;
+}
+
+const { title, pageTitle, description, image, canonical, content, wide = false } =
+	Astro.props;
+const banner = bannerSrc(bannerStore(), dhakaDay(new Date()));
+const NAV = [
+	["/quiz", "Quiz"],
+	["/people", "People"],
+	["/gallery", "Gallery"],
+	["/handbook", "Handbook"],
+] as const;
+const section = `/${Astro.url.pathname.split("/")[1]}`;
+const settingsResult = await getSiteSettingsWithCacheHint();
+if (Astro.cache?.enabled) Astro.cache.set(settingsResult.cacheHint);
+
+const { siteTitle, siteTagline, siteLogo } = resolveStarterSiteIdentity(
+	settingsResult.data,
+);
+const titleIncludesSiteName =
+	title === siteTitle ||
+	title.endsWith(` | ${siteTitle}`) ||
+	title.endsWith(` — ${siteTitle}`);
+const fullTitle = titleIncludesSiteName ? title : `${title} — ${siteTitle}`;
+const pageDescription = description ?? siteTagline;
+
+const themeId = resolveTheme(new Date(), hubSettings().get(THEME_SETTING_KEY));
+const theme = themeById(themeId);
+
+const staffId = currentStaffId(Astro.cookies);
+// A person removed from People counts as signed out.
+const staff = staffId ? (await getEmDashEntry("people", staffId)).entry : null;
+const firstName = staff?.data.name.split(/\s+/)[0];
+
+const pageCtx = createPublicPageContext({
+	Astro,
+	kind: content ? "content" : "custom",
+	pageType: "website",
+	title: fullTitle,
+	pageTitle: pageTitle ?? title,
+	description: pageDescription,
+	canonical,
+	image,
+	content,
+	siteName: siteTitle,
+});
+---
+
+<!doctype html>
+<html lang="en" data-theme={themeId}>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		{theme && <meta name="theme-color" content={theme.color} />}
+		<title>{fullTitle}</title>
+		<Font cssVariable="--font-display" preload />
+		<Font cssVariable="--font-body" preload />
+		<EmDashHead page={pageCtx} />
+	</head>
+	<body>
+		<EmDashBodyStart page={pageCtx} />
+
+		<header class="site-header wrap wide">
+			<div class="header-art"><DailyBanner src={banner} /></div>
+			<a class="brand" href="/">
+				{
+					siteLogo ? (
+						<img class="brand-logo" src={siteLogo.url} alt={siteLogo.alt || siteTitle} />
+					) : (
+						<>
+							<svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+								<circle cx="12" cy="12" r="11" fill="var(--accent)" />
+								<circle cx="8.5" cy="8.5" r="3" fill="var(--accent-soft)" />
+							</svg>
+							<span>{siteTitle}</span>
+						</>
+					)
+				}
+			</a>
+			<nav class="nav" aria-label="Main">
+				{NAV.map(([href, label]) => (
+					<a href={href} aria-current={section === href ? "page" : undefined}>
+						{label}
+					</a>
+				))}
+			</nav>
+			{
+				staff ? (
+					<div class="who">
+						<span>
+							Hi, <strong>{firstName}</strong>
+						</span>
+						<a href="/pin">Change PIN</a>
+						<form method="post" action="/sign-out">
+							<button type="submit">Not you? Sign out</button>
+						</form>
+					</div>
+				) : Astro.url.pathname === "/sign-in" ? null : (
+					<a class="sign-in" href={`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`}>
+						Sign in
+					</a>
+				)
+			}
+		</header>
+
+		<main class:list={["wrap", { wide }]}>
+			<slot />
+		</main>
+
+		<EmDashBodyEnd page={pageCtx} />
+	</body>
+</html>
+
+<style>
+	.site-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		position: relative;
+		isolation: isolate;
+		padding-block: 0.6rem;
+		padding-inline: calc(var(--gutter) + 0.6rem);
+		margin-block-start: 1rem;
+	}
+	.nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+		font-weight: 700;
+		font-size: 0.9375rem;
+	}
+	.nav a[aria-current="page"] {
+		color: var(--accent-ink);
+		text-decoration-thickness: 3px;
+	}
+	.who {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem 1rem;
+		font-size: 0.9375rem;
+	}
+	.who form {
+		display: contents;
+	}
+	.who button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--slate);
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.sign-in {
+		padding: 0.35rem 0.9rem;
+		border: 2px solid var(--ink);
+		border-radius: 999px;
+		font-weight: 700;
+		font-size: 0.9375rem;
+		text-decoration: none;
+	}
+	.brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+		font-weight: 700;
+		font-size: 1rem;
+		text-decoration: none;
+	}
+	.brand-mark {
+		width: 1.375rem;
+		height: 1.375rem;
+		flex: none;
+	}
+	.brand-logo {
+		display: block;
+		height: 2.5rem;
+		width: auto;
+	}
+	/* The daily banner is the header's backdrop on every page. */
+	.header-art {
+		position: absolute;
+		inset: 0 var(--gutter);
+		z-index: -1;
+		border-radius: 999px;
+		overflow: hidden;
+	}
+	@media (max-width: 40rem) {
+		.header-art {
+			border-radius: 1.6rem;
+		}
+	}
+	/* Paper pills keep the links readable over a generated image. */
+	.site-header .brand,
+	.site-header .nav,
+	.site-header .who,
+	.site-header .sign-in {
+		background: color-mix(in srgb, var(--sheet) 88%, transparent);
+		border-radius: 999px;
+	}
+	.site-header .brand,
+	.site-header .nav,
+	.site-header .who {
+		padding: 0.4rem 0.9rem;
+	}
+	main {
+		padding-block-end: 3rem;
+	}
+	.wide {
+		--measure: 72rem;
+	}
+</style>

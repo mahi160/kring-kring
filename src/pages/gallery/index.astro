@@ -1,0 +1,493 @@
+---
+import { getEmDashEntry } from "emdash";
+import { withEmDashRuntime } from "emdash/middleware";
+import { Image } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import { currentStaffId, isCrossSite, signOutStaff, uploadLimit } from "../../staff/index.ts";
+import { quizClock } from "../../staff/quiz.ts";
+import {
+	bentoSize,
+	getGalleryPhotos,
+	MAX_CAPTION,
+	MAX_GALLERY_BYTES,
+	MAX_UPLOADS_PER_DAY,
+	parseGalleryUpload,
+} from "../../utils/gallery";
+import { isActive } from "../../utils/people";
+import "../../styles/forms.css";
+
+const post = Astro.request.method === "POST";
+if (post && isCrossSite(Astro.request)) {
+	return new Response("Cross-site request blocked", { status: 403 });
+}
+// The uploader always comes from the session cookie, never from the form.
+const personId = currentStaffId(Astro.cookies);
+if (post && !personId) return Astro.redirect("/sign-in?next=/gallery", 303);
+const person = personId ? (await getEmDashEntry("people", personId)).entry : null;
+const staff = person && isActive(person) ? person : null;
+if (post && !staff) {
+	// A removed or deactivated person's session is dead; clear it so sign-in doesn't bounce back here.
+	signOutStaff(Astro.cookies);
+	return Astro.redirect("/sign-in?next=/gallery", 303);
+}
+
+let caption = "";
+let errors: { photo?: string; caption?: string } = {};
+let failure: string | null = null;
+
+if (post && staff) {
+	const result = await parseGalleryUpload(await Astro.request.formData());
+	caption = result.caption;
+	if (!result.ok) {
+		errors = result.errors;
+		Astro.response.status = 400;
+	} else {
+		const day = quizClock(new Date()).day;
+		if (!uploadLimit().take(staff.data.id, day, MAX_UPLOADS_PER_DAY)) {
+			failure = `That's ${MAX_UPLOADS_PER_DAY} photos today, which is the daily limit. Come back tomorrow!`;
+			Astro.response.status = 429;
+		} else {
+			// Trusted runtime: staff aren't EmDash users, so there's no actor and revisions record no author.
+			const saved = await withEmDashRuntime(async (runtime) => {
+				const alt = result.caption || `Photo shared by ${staff.data.name}`;
+				const upload = await runtime.handleMediaUpload({ ...result.photo, alt, maxUploadSize: MAX_GALLERY_BYTES });
+				if (!upload.success) return upload.error.message;
+				const create = await runtime.handleContentCreate("gallery", {
+					data: {
+						photo: { provider: "local", id: upload.data.item.id, alt },
+						caption: result.caption || null,
+						uploaded_by: staff.data.name,
+					},
+				});
+				if (!create.success) return create.error.message;
+				// Gallery keeps drafts, so a new photo stays hidden until published.
+				const publish = await runtime.handleContentPublish("gallery", create.data.item.id);
+				if (!publish.success) {
+					await runtime.handleContentDelete("gallery", create.data.item.id);
+					return publish.error.message;
+				}
+				return null;
+			});
+			if (!saved) return Astro.redirect("/gallery?added=1", 303);
+			console.error(`Gallery upload failed for ${staff.data.id}: ${saved}`);
+			uploadLimit().release(staff.data.id, day);
+			failure = "Your photo couldn't be added. Try a smaller JPEG, PNG or WebP." + saved;
+			Astro.response.status = 500;
+		}
+	}
+}
+
+const photos = await getGalleryPhotos();
+const added = Astro.url.searchParams.get("added") === "1";
+const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "Asia/Dhaka" });
+const tiles = photos.map((p, i) => {
+	const photo = p.data.photo;
+	const published = p.data.publishedAt ?? p.data.createdAt;
+	return {
+		photo,
+		size: bentoSize({ featured: p.data.featured, width: photo.width, height: photo.height }, i),
+		caption: p.data.caption ?? "",
+		by: p.data.uploaded_by ?? "",
+		date: published ? dateFormat.format(new Date(published)) : "",
+		turn: ["-1.2deg", "0.8deg", "-0.5deg", "1.1deg"][i % 4],
+	};
+});
+const problems = (["photo", "caption"] as const).filter((key) => errors[key]);
+---
+
+<Base title="Gallery" wide>
+	<h1 class="page-title">Gallery</h1>
+	<p class="page-intro">The office wall of fame: lunch wins, team days and tea-break moments. Snap it, share it.</p>
+	{added && <p class="saved" role="status">Photo added. Look at that!</p>}
+
+	{
+		staff ? (
+			<section class="add" aria-labelledby="add-title">
+				<h2 id="add-title">Add a photo</h2>
+				{problems.length > 0 && (
+					<div class="error" role="alert" tabindex="-1" autofocus>
+						<p>Please fix {problems.length === 1 ? "this" : "these"} before adding:</p>
+						<ul>
+							{problems.map((key) => <li><a href={`#${key}`}>{key === "photo" ? "Photo" : "Caption"}</a>: {errors[key]}</li>)}
+						</ul>
+					</div>
+				)}
+				{failure && <p class="error" role="alert" tabindex="-1" autofocus>{failure}</p>}
+				<form method="post" enctype="multipart/form-data" novalidate>
+					<div class="field">
+						<label for="photo">Photo</label>
+						<input
+							id="photo"
+							name="photo"
+							type="file"
+							accept="image/jpeg,image/png,image/webp"
+							required
+							aria-invalid={errors.photo ? "true" : undefined}
+							aria-describedby="photo-hint"
+						/>
+						<p class="field-hint" id="photo-hint">JPEG, PNG or WebP, up to 5 MB.</p>
+					</div>
+					<div class="field">
+						<label for="caption">Caption (optional)</label>
+						<input
+							id="caption"
+							name="caption"
+							type="text"
+							maxlength={MAX_CAPTION}
+							value={caption}
+							aria-invalid={errors.caption ? "true" : undefined}
+						/>
+					</div>
+					<button type="submit">Add to the wall</button>
+				</form>
+			</section>
+		) : (
+			<p class="sign-in-note">
+				<a href="/sign-in?next=/gallery">Sign in to add photos</a>
+			</p>
+		)
+	}
+
+	{
+		tiles.length === 0 ? (
+			<p class="empty">
+				The wall is bare! {staff ? "Be the first to add a photo above." : "Sign in and be the first to add a photo."}
+			</p>
+		) : (
+			<ul class="wall" role="list">
+				{tiles.map((t, i) => (
+					<li class={`tile ${t.size}`} style={`--turn:${t.turn}`}>
+						<button
+							type="button"
+							data-index={i}
+							data-caption={t.caption}
+							data-by={t.by}
+							data-date={t.date}
+							aria-label={t.caption || (t.by ? `Photo shared by ${t.by}` : "Open photo")}
+						>
+							<Image image={t.photo} alt="" width={t.photo.width ?? 640} height={t.photo.height ?? 640} />
+							{t.caption && <span class="cap">{t.caption}</span>}
+						</button>
+					</li>
+				))}
+			</ul>
+		)
+	}
+
+	<dialog id="lightbox" aria-label="Photo viewer">
+		<figure>
+			<img alt="" />
+			<figcaption>
+				<p class="lb-caption"></p>
+				<p class="lb-meta"></p>
+			</figcaption>
+		</figure>
+		<div class="lb-controls">
+			<button type="button" data-prev aria-label="Previous photo">←</button>
+			<button type="button" data-close>Close</button>
+			<button type="button" data-next aria-label="Next photo">→</button>
+		</div>
+	</dialog>
+</Base>
+
+<script>
+	const dialog = document.querySelector<HTMLDialogElement>("#lightbox");
+	const tiles = [...document.querySelectorAll<HTMLButtonElement>(".wall button")];
+	const img = dialog?.querySelector("img");
+	const captionEl = dialog?.querySelector(".lb-caption");
+	const metaEl = dialog?.querySelector(".lb-meta");
+	if (dialog && img && captionEl && metaEl && tiles.length > 0) {
+		let current = 0;
+		const show = (i: number) => {
+			current = (i + tiles.length) % tiles.length;
+			const t = tiles[current];
+			const thumb = t.querySelector("img");
+			// The tile's biggest srcset candidate is the largest size the page already knows.
+			const largest = thumb?.srcset.split(",").pop()?.trim().split(" ")[0];
+			img.src = largest || thumb?.src || "";
+			img.alt = t.dataset.caption || (t.dataset.by ? `Photo shared by ${t.dataset.by}` : "Office photo");
+			captionEl.textContent = t.dataset.caption ?? "";
+			metaEl.textContent = [t.dataset.by && `by ${t.dataset.by}`, t.dataset.date].filter(Boolean).join(" · ");
+		};
+		tiles.forEach((t, i) =>
+			t.addEventListener("click", () => {
+				show(i);
+				dialog.showModal();
+			}),
+		);
+		dialog.addEventListener("close", () => tiles[current].focus());
+		dialog.querySelector("[data-prev]")?.addEventListener("click", () => show(current - 1));
+		dialog.querySelector("[data-next]")?.addEventListener("click", () => show(current + 1));
+		dialog.querySelector("[data-close]")?.addEventListener("click", () => dialog.close());
+		dialog.addEventListener("keydown", (e) => {
+			if (e.key === "ArrowLeft") show(current - 1);
+			else if (e.key === "ArrowRight") show(current + 1);
+		});
+		// A click on the backdrop lands on the dialog itself.
+		dialog.addEventListener("click", (e) => {
+			if (e.target === dialog) dialog.close();
+		});
+	}
+</script>
+
+<style>
+	.saved {
+		margin: 0 0 1.5rem;
+		padding: 0.6rem 0.85rem;
+		border-radius: var(--radius);
+		background: var(--note-mint);
+		font-weight: 700;
+	}
+	.sign-in-note {
+		margin: 0 0 1.5rem;
+		font-weight: 700;
+	}
+	.empty {
+		padding: 2rem 1.25rem;
+		border: 2px dashed var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+		text-align: center;
+	}
+	.add {
+		max-width: 36rem;
+		margin: 0 0 2rem;
+		padding: 1rem 1.25rem 1.25rem;
+		border-radius: var(--radius);
+		background: var(--note-yellow);
+		color: var(--on-highlight);
+	}
+	.add h2 {
+		margin: 0 0 0.75rem;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.add form {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.field {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.add label {
+		font-weight: 700;
+	}
+	.add input {
+		font: inherit;
+		padding: 0.55rem 0.7rem;
+		border: 2px solid var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+	}
+	.add .field-hint {
+		margin: 0;
+		font-size: 0.9375rem;
+	}
+	.add .error {
+		margin: 0 0 0.75rem;
+		padding: 0.6rem 0.85rem;
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+		border: 2px solid var(--accent-ink);
+	}
+	.add .error p {
+		margin: 0;
+	}
+	.add .error ul {
+		margin: 0.25rem 0 0;
+		padding-inline-start: 1.25rem;
+	}
+	.add button {
+		justify-self: start;
+		padding: 0.65rem 1.1rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.add input:focus-visible,
+	.add button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+
+	.wall {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		grid-auto-rows: 8.5rem;
+		grid-auto-flow: dense;
+		gap: 0.75rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	@media (min-width: 48rem) {
+		.wall {
+			grid-template-columns: repeat(4, 1fr);
+			grid-auto-rows: 11rem;
+			gap: 1rem;
+		}
+	}
+	.tile {
+		position: relative;
+		min-width: 0;
+		rotate: var(--turn);
+		transition:
+			rotate 0.2s ease,
+			scale 0.2s ease;
+	}
+	.tile.big {
+		grid-column: span 2;
+		grid-row: span 2;
+	}
+	.tile.wide {
+		grid-column: span 2;
+	}
+	.tile.tall {
+		grid-row: span 2;
+	}
+	.tile:hover,
+	.tile:focus-within {
+		rotate: 0deg;
+		scale: 1.03;
+		z-index: 1;
+	}
+	.tile button {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 100%;
+		padding: 0.3rem;
+		border: 0;
+		border-radius: var(--radius);
+		background: var(--sheet);
+		box-shadow: 0 2px 8px var(--dot);
+		color: inherit;
+		font: inherit;
+		text-align: start;
+		cursor: zoom-in;
+		overflow: hidden;
+	}
+	.tile button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 3px;
+	}
+	.tile :global(img) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border-radius: calc(var(--radius) - 0.2rem);
+		object-fit: cover;
+	}
+	.cap {
+		position: absolute;
+		inset: auto 0.3rem 0.3rem;
+		padding: 1.5rem 0.6rem 0.5rem;
+		border-radius: 0 0 calc(var(--radius) - 0.2rem) calc(var(--radius) - 0.2rem);
+		background: linear-gradient(transparent, color-mix(in srgb, var(--ink) 85%, transparent));
+		color: var(--paper);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		line-height: 1.3;
+		overflow-wrap: anywhere;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+	.tile button:hover .cap,
+	.tile button:focus-visible .cap {
+		opacity: 1;
+	}
+	@media (hover: none) {
+		.cap {
+			opacity: 1;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tile,
+		.cap {
+			transition: none;
+		}
+		.tile:hover,
+		.tile:focus-within {
+			scale: 1;
+		}
+	}
+
+	dialog {
+		width: min(60rem, calc(100vw - 2rem));
+		max-height: calc(100dvh - 2rem);
+		padding: 1rem;
+		border: 0;
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+	}
+	dialog::backdrop {
+		background: color-mix(in srgb, var(--ink) 70%, transparent);
+	}
+	dialog figure {
+		margin: 0;
+	}
+	dialog img {
+		display: block;
+		max-width: 100%;
+		max-height: 70dvh;
+		margin-inline: auto;
+		border-radius: calc(var(--radius) - 0.2rem);
+		object-fit: contain;
+	}
+	figcaption p {
+		margin: 0.5rem 0 0;
+		overflow-wrap: anywhere;
+	}
+	.lb-caption {
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.lb-meta {
+		color: var(--slate);
+		font-size: 0.9375rem;
+	}
+	.lb-controls {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin-block-start: 0.75rem;
+	}
+	.lb-controls button {
+		padding: 0.5rem 1rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.lb-controls button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		dialog[open] {
+			animation: pop 0.18s ease-out;
+		}
+		@keyframes pop {
+			from {
+				opacity: 0;
+				scale: 0.96;
+			}
+		}
+	}
+</style>

@@ -1,0 +1,201 @@
+---
+import { getEmDashCollection } from "emdash";
+import { Image } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import { currentStaffId } from "../../staff/index.ts";
+import { groupByTeam, initials, isActive } from "../../utils/people";
+
+const { entries, error } = await getEmDashCollection("people", { limit: 1000 });
+if (error) console.error("Failed to load people:", error);
+const people = entries.filter(isActive).sort((a, b) => a.data.name.localeCompare(b.data.name));
+const groups = groupByTeam(people);
+const staffId = currentStaffId(Astro.cookies);
+const saved = Astro.url.searchParams.get("saved") === "1";
+
+const joinedFormat = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "Asia/Dhaka" });
+const joined = (iso?: string) => {
+	const d = iso ? new Date(iso) : null;
+	return d && !Number.isNaN(d.getTime()) ? joinedFormat.format(d) : null;
+};
+const birthday = (p: (typeof people)[number]) =>
+	p.data.hide_birthday || !p.data.birthday_month || !p.data.birthday_day
+		? null
+		: `${p.data.birthday_day} ${p.data.birthday_month}`;
+---
+
+<Base title="People" wide>
+	<h1 class="page-title">People</h1>
+	<p class="page-intro">Everyone at the office. Signed in? Keep your own card up to date.</p>
+	{saved && <p class="saved" role="status">Profile saved. Looking good!</p>}
+	{people.length === 0 && <p>Nobody is listed yet.</p>}
+	{
+		groups.map(([team, members], i) => (
+			<section aria-labelledby={`team-${i}`}>
+				<h2 class="team" id={`team-${i}`}>
+					{team ?? "No team"}
+				</h2>
+				<ul class="grid" role="list">
+					{members.map((p) => {
+						const mine = p.data.id === staffId;
+						const bday = birthday(p);
+						const since = joined(p.data.joined_on);
+						return (
+							<li class="card person" id={`p-${p.id}`}>
+								{p.data.photo ? (
+									<Image image={p.data.photo} alt="" width={96} height={96} class="avatar" />
+								) : (
+									<span class="avatar" aria-hidden="true">
+										{initials(p.data.name)}
+									</span>
+								)}
+								<h3 class="name">{p.data.name}</h3>
+								{p.data.team && <p class="team-name">{p.data.team}</p>}
+								{p.data.bio && <p class="bio">{p.data.bio}</p>}
+								<dl class="facts">
+									{p.data.phone && (
+										<>
+											<dt>Phone</dt>
+											<dd>
+												<a href={`tel:${p.data.phone.replaceAll(" ", "")}`}>{p.data.phone}</a>
+											</dd>
+										</>
+									)}
+									{bday && (
+										<>
+											<dt>Birthday</dt>
+											<dd>{bday}</dd>
+										</>
+									)}
+									{since && (
+										<>
+											<dt>Joined</dt>
+											<dd>{since}</dd>
+										</>
+									)}
+								</dl>
+								{mine && (
+									<a class="edit" href="/people/me">
+										Edit my profile
+									</a>
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			</section>
+		))
+	}
+</Base>
+
+<style>
+	.saved {
+		margin: 0 0 1.5rem;
+		padding: 0.6rem 0.85rem;
+		border-radius: var(--radius);
+		background: var(--note-mint);
+		font-weight: 700;
+	}
+	.team {
+		margin: 2.5rem 0 1.5rem;
+		font-family: var(--font-display);
+		font-size: 1.375rem;
+		font-weight: 800;
+		letter-spacing: 0.01em;
+		text-transform: uppercase;
+		line-height: 1.2;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+		gap: 1.75rem 1.25rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.person {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+		scroll-margin-block-start: 2rem;
+	}
+	.person:nth-child(3n + 1) {
+		rotate: -0.6deg;
+	}
+	.person:nth-child(3n) {
+		rotate: 0.5deg;
+	}
+	.person:target {
+		outline: 3px solid var(--highlight);
+		outline-offset: 4px;
+	}
+	.avatar {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 4.5rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		object-fit: cover;
+		background: var(--note-sky);
+		font-family: var(--font-display);
+		font-size: 1.75rem;
+		font-weight: 800;
+	}
+	.person:nth-child(3n + 2) .avatar:not(img) {
+		background: var(--note-pink);
+	}
+	.person:nth-child(3n) .avatar:not(img) {
+		background: var(--note-yellow);
+	}
+	.name {
+		margin: 0.25rem 0 0;
+		font-size: 1.25rem;
+		line-height: 1.2;
+		overflow-wrap: anywhere;
+	}
+	.team-name {
+		margin: 0;
+		color: var(--slate);
+		font-size: 0.9375rem;
+		font-weight: 700;
+	}
+	.bio {
+		margin: 0;
+		font-size: 1rem;
+		line-height: 1.5;
+		overflow-wrap: anywhere;
+	}
+	.facts {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.15rem 0.75rem;
+		margin: 0.25rem 0 0;
+		font-size: 0.9375rem;
+		line-height: 1.4;
+	}
+	.facts dt {
+		color: var(--slate);
+	}
+	.facts dd {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.edit {
+		margin-block-start: auto;
+		padding: 0.45rem 0.9rem;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.edit:hover {
+		text-decoration: underline;
+	}
+	.edit:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+</style>

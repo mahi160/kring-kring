@@ -1,0 +1,226 @@
+/*
+ * Colour themes, picked by <html data-theme="<id>"> (see src/utils/theme.ts).
+ * A theme only sets custom properties; tokens it leaves out fall back to :root in theme.css.
+ * Keep the contrast pairs checked by tests/themes.test.ts: ink on paper/sheet/notes,
+ * slate on paper, --accent-ink on paper/sheet, --on-accent on --accent-ink,
+ * --on-highlight on --highlight.
+ */
+
+/* Weekday rainbow (VIBGYOR) */
+[data-theme="sunday"] {
+	--accent: #8b5cf6;
+	--accent-ink: #6a3fd1;
+	--accent-soft: #b89bff;
+	--highlight: #c4a8ff;
+	--note-yellow: #e9deff;
+	--note-mint: #d7e8ff;
+	--note-pink: #ffd9ef;
+	--note-sky: #d9d3ff;
+	--banner-a: #c4a8ff;
+	--banner-b: #ece3ff;
+}
+
+[data-theme="monday"] {
+	--accent: #5c6bc0;
+	--accent-ink: #3f4aa8;
+	--accent-soft: #8e99e0;
+	--highlight: #9fa8f0;
+	--note-yellow: #e1e4ff;
+	--note-mint: #d3ecf5;
+	--note-pink: #f0d9f7;
+	--note-sky: #cfdcff;
+	--banner-a: #9fa8f0;
+	--banner-b: #e4e7ff;
+}
+
+[data-theme="tuesday"] {
+	--accent: #2f80ed;
+	--accent-ink: #1f63c2;
+	--accent-soft: #6fb0ff;
+	--highlight: #7dbbff;
+	--note-yellow: #d6e8ff;
+	--note-mint: #cdf0ee;
+	--note-pink: #e6dcff;
+	--note-sky: #c4e0ff;
+	--banner-a: #7dbbff;
+	--banner-b: #dcecff;
+}
+
+[data-theme="wednesday"] {
+	--accent: #34a853;
+	--accent-ink: #1e7a3a;
+	--accent-soft: #77d28f;
+	--highlight: #8fd9a0;
+	--note-yellow: #e4f3b8;
+	--note-mint: #cdeed8;
+	--note-pink: #ffe2d1;
+	--note-sky: #cdeef0;
+	--banner-a: #8fd9a0;
+	--banner-b: #dff5e4;
+}
+
+[data-theme="thursday"] {
+	--accent: #f5c518;
+	--accent-ink: #7a5a00;
+	--accent-soft: #ffe066;
+	--highlight: #f5c518;
+	--note-yellow: #fff0a8;
+	--note-mint: #e4f3b8;
+	--note-pink: #ffe0b8;
+	--note-sky: #fff6cf;
+	--banner-a: #ffe066;
+	--banner-b: #fff6cf;
+}
+
+[data-theme="friday"] {
+	--accent: #fb8c00;
+	--accent-ink: #a84a00;
+	--accent-soft: #ffb454;
+	--highlight: #ffb454;
+	--note-yellow: #ffe0a8;
+	--note-mint: #ffeccc;
+	--note-pink: #ffd2bd;
+	--note-sky: #ffe6c2;
+	--banner-a: #ffb454;
+	--banner-b: #ffe9cc;
+}
+
+[data-theme="saturday"] {
+	--accent: #e53935;
+	--accent-ink: #b3261e;
+	--accent-soft: #ff7a75;
+	--highlight: #ff9a94;
+	--note-yellow: #ffe0dc;
+	--note-mint: #ffd6dc;
+	--note-pink: #ffc9d0;
+	--note-sky: #ffe6e0;
+	--banner-a: #ff9a94;
+	--banner-b: #ffe3e0;
+}
+
+/* Dark: ink flips light, notes turn deep so light ink still reads on them */
+[data-theme="halloween"] {
+	--paper: #17101f;
+	--sheet: #241a30;
+	--ink: #f6ead8;
+	--slate: #c3b3d1;
+	--rule: #43345a;
+	--dot: rgb(255 255 255 / 0.07);
+	--accent: #ff7a1a;
+	--accent-ink: #ff9a3d;
+	--accent-soft: #ffb066;
+	--on-accent: #1a0f00;
+	--highlight: #b36cff;
+	--on-highlight: #17101f;
+	--note-yellow: #5a3208;
+	--note-mint: #2f3d1c;
+	--note-pink: #4b2250;
+	--note-sky: #2d2a5e;
+	--banner-a: #3a1f5c;
+	--banner-b: #6b3200;
+	color-scheme: dark;
+}
+
+/* Vice City sunset */
+[data-theme="gta6"] {
+	--paper: #fff1f8;
+	--ink: #2a1245;
+	--slate: #5b4a73;
+	--rule: #ecd0e2;
+	--accent: #ff2e93;
+	--accent-ink: #b80f66;
+	--accent-soft: #ff7ab8;
+	--highlight: #00c2c7;
+	--note-yellow: #ffd9b3;
+	--note-mint: #bff3f0;
+	--note-pink: #ffc4e1;
+	--note-sky: #dccbff;
+	--banner-a: #ff2e93;
+	--banner-b: #ff9f1c;
+}
+
+/* Bangladesh flag: green and red */
+[data-theme="victory-day"] {
+	--accent: #00875f;
+	--accent-ink: #006a4e;
+	--accent-soft: #4fc79c;
+	--highlight: #ff5568;
+	--note-yellow: #ffd6dc;
+	--note-mint: #cdeed8;
+	--note-pink: #ffe3e6;
+	--note-sky: #d9f3e5;
+	--banner-a: #006a4e;
+	--banner-b: #f42a41;
+}
+
+[data-theme="independence-day"] {
+	--accent: #f42a41;
+	--accent-ink: #bd1a2e;
+	--accent-soft: #ff7a88;
+	--highlight: #00875f;
+	--on-highlight: #ffffff;
+	--note-yellow: #ffe3e6;
+	--note-mint: #cdeed8;
+	--note-pink: #ffd0d6;
+	--note-sky: #d9f3e5;
+	--banner-a: #f42a41;
+	--banner-b: #006a4e;
+}
+
+[data-theme="pohela-boishakh"] {
+	--paper: #fffaf0;
+	--accent: #e5252a;
+	--accent-ink: #b3141b;
+	--accent-soft: #ff7a7d;
+	--highlight: #ffc20e;
+	--note-yellow: #fff0b3;
+	--note-mint: #ffe3bf;
+	--note-pink: #ffd9d6;
+	--note-sky: #fff6e0;
+	--banner-a: #e5252a;
+	--banner-b: #fff4d6;
+}
+
+/* Manual only: the date moves every year */
+[data-theme="eid"] {
+	--paper: #fbf6e6;
+	--accent: #1f8a5b;
+	--accent-ink: #14724a;
+	--accent-soft: #5fc79a;
+	--highlight: #d4a017;
+	--note-yellow: #fbeab0;
+	--note-mint: #d4efd9;
+	--note-pink: #f5e6c4;
+	--note-sky: #d8efe6;
+	--banner-a: #1f8a5b;
+	--banner-b: #e9c75d;
+}
+
+[data-theme="new-year"] {
+	--accent: #f2b705;
+	--accent-ink: #6f5000;
+	--accent-soft: #ffd85e;
+	--highlight: #1a1a1a;
+	--on-highlight: #ffffff;
+	--note-yellow: #ffe9a8;
+	--note-mint: #cdeed8;
+	--note-pink: #ffd6dc;
+	--note-sky: #d3e7ff;
+	--banner-a: #f2b705;
+	--banner-b: #1a1a1a;
+}
+
+/* Manual only */
+[data-theme="winter"] {
+	--paper: #eef4f8;
+	--accent: #2b7fb8;
+	--accent-ink: #1d6491;
+	--accent-soft: #7fc0e8;
+	--highlight: #7fc8e8;
+	--note-yellow: #e3eef7;
+	--note-mint: #d4eef0;
+	--note-pink: #e8e0f5;
+	--note-sky: #cfe6f7;
+	--banner-a: #cfe6f7;
+	--banner-b: #ffffff;
+}
