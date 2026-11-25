@@ -60,7 +60,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 | Page      | Path                     | What it shows                                                        |
 | --------- | ------------------------ | -------------------------------------------------------------------- |
 | Home      | `/`                      | Date, next-holiday chip, weather, AQI, announcements, events, celebrations, comic, news |
-| Holidays  | `/holidays`              | Public holidays by year; consecutive same-title days merged; next one highlighted |
+| Holidays  | `/holidays`              | Upcoming holidays (soonest first) then past (most recent first); consecutive same-title days merged; next one highlighted |
 | Quiz      | `/quiz`                  | Leaderboards, personal points and streaks, past questions            |
 | People    | `/people`, `/people/[slug]`, `/people/me` | Staff list by team + birthday calendar; profile page (contact and emergency details only for signed-in staff); edit your own (signed in) |
 | Announcements | `/announcements`, `/announcements/[slug]` | All announcements (current, then past); full text. The home board shows only the first block plus "Read more" |

@@ -10,10 +10,12 @@ if (error) console.error("Failed to load holidays:", error);
 const today = dhakaDay(new Date());
 const holidays = groupHolidays(entries);
 const next = nextHoliday(holidays, today);
-const years = [...new Set(holidays.map((h) => h.start.slice(0, 4)))].map((year) => ({
-	year,
-	holidays: holidays.filter((h) => h.start.startsWith(year)),
-}));
+// Upcoming: soonest first. Past: most recent first.
+const sections = [
+	{ id: "upcoming", title: "Upcoming", holidays: holidays.filter((h) => h.end >= today) },
+	{ id: "past", title: "Past", holidays: holidays.filter((h) => h.end < today).reverse() },
+].filter((s) => s.holidays.length > 0);
+const thisYear = today.slice(0, 4);
 
 const when = (h: (typeof holidays)[number]) =>
 	h.days === 1
@@ -28,21 +30,22 @@ const when = (h: (typeof holidays)[number]) =>
 	{
 		error ? (
 			<p class="empty">Holidays couldn't be loaded. Refresh the page in a minute.</p>
-		) : years.length === 0 ? (
+		) : sections.length === 0 ? (
 			<p class="empty">No holidays listed yet.</p>
 		) : (
-			years.map(({ year, holidays }) => (
-				<section class="card year" aria-labelledby={`y-${year}`}>
-					<h2 class="card-title" id={`y-${year}`}>{year}</h2>
+			sections.map(({ id, title, holidays }) => (
+				<section class:list={["card", "group", id]} aria-labelledby={id}>
+					<h2 class="card-title" id={id}>{title}</h2>
 					<ol class="days" role="list">
 						{holidays.map((h) => {
 							const start = dhakaMidnight(h.start);
 							const isNext = next?.start === h.start;
 							return (
-								<li class:list={["day", { past: h.end < today, next: isNext }]}>
+								<li class:list={["day", { next: isNext }]}>
 									<time class="stub" datetime={h.start}>
 										<span class="stub-month">{formatShortMonth(start)}</span>
 										<span class="stub-day">{formatDay(start)}</span>
+										{h.start.slice(0, 4) !== thisYear && <span class="stub-year">{h.start.slice(0, 4)}</span>}
 									</time>
 									<div class="text">
 										<h3>
@@ -66,9 +69,12 @@ const when = (h: (typeof holidays)[number]) =>
 	.empty {
 		font-weight: 700;
 	}
-	.year {
+	.group {
 		max-width: 44rem;
 		margin-block-end: 2.5rem;
+	}
+	.group.past {
+		color: var(--slate);
 	}
 	.days {
 		display: grid;
@@ -85,10 +91,7 @@ const when = (h: (typeof holidays)[number]) =>
 	.day:last-child {
 		border-block-end: 0;
 	}
-	.day.past {
-		color: var(--slate);
-	}
-	.day.past .stub-month {
+	.group.past .stub-month {
 		color: var(--slate);
 	}
 	.day.next {
@@ -113,6 +116,11 @@ const when = (h: (typeof holidays)[number]) =>
 		font-size: 1.75rem;
 		font-weight: 800;
 		line-height: 1;
+	}
+	.stub-year {
+		font-size: 0.8125rem;
+		font-weight: 700;
+		color: var(--slate);
 	}
 	.text {
 		min-width: 0;
