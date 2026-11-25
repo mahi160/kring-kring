@@ -136,8 +136,15 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 
 	{
 		staff ? (
-			<section class="card share" aria-labelledby="share-title">
-				<h2 id="share-title" class="card-title">Share an idea</h2>
+			<>
+			<p class="share-open">
+				<button type="button" aria-haspopup="dialog" data-share-open>+ Share an idea</button>
+			</p>
+			<dialog class="share" id="share-idea" aria-labelledby="share-title" data-open={problems.length > 0 || failure ? "" : undefined}>
+				<div class="share-head">
+					<h2 id="share-title">Share an idea</h2>
+					<button type="button" class="share-close" data-share-close aria-label="Close">×</button>
+				</div>
 				{problems.length > 0 && (
 					<div class="error" role="alert" tabindex="-1" autofocus>
 						<p>Please fix {problems.length === 1 ? "this" : "these"} before posting:</p>
@@ -157,6 +164,7 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 							type="text"
 							maxlength={MAX_TITLE}
 							required
+							autofocus={problems.length === 0 && !failure}
 							value={draft.title}
 							aria-invalid={errors.title ? "true" : undefined}
 						/>
@@ -179,7 +187,8 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 					</div>
 					<button type="submit">Post idea</button>
 				</form>
-			</section>
+			</dialog>
+			</>
 		) : (
 			<p class="sign-in-note">
 				<a href="/sign-in?next=/ideas">Sign in to share and vote</a>
@@ -274,6 +283,17 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 </Base>
 
 <script>
+	const share = document.querySelector<HTMLDialogElement>("#share-idea");
+	if (share) {
+		document.querySelector("[data-share-open]")?.addEventListener("click", () => share.showModal());
+		share.querySelector("[data-share-close]")?.addEventListener("click", () => share.close());
+		share.addEventListener("click", (e) => {
+			if (e.target === share) share.close();
+		});
+		// A rejected post re-renders the page: reopen the form with its errors.
+		if (share.hasAttribute("data-open")) share.showModal();
+	}
+
 	for (const form of document.querySelectorAll<HTMLFormElement>("form[data-confirm]")) {
 		form.addEventListener("submit", (e) => {
 			if (!confirm(form.dataset.confirm ?? "")) e.preventDefault();
@@ -297,9 +317,53 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 	.meta a {
 		color: var(--accent-ink);
 	}
-	.share {
-		margin: 0 0 2.5rem;
+	.share-open {
+		margin: 0 0 2rem;
+	}
+	.share-open button,
+	.share button[type="submit"] {
+		padding: 0.65rem 1.1rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	dialog.share {
+		width: min(32rem, calc(100vw - 2rem));
+		padding: 1rem 1.25rem 1.25rem;
+		border: 0;
+		border-radius: var(--radius);
 		background: var(--note-yellow);
+		color: var(--ink);
+	}
+	dialog.share::backdrop {
+		background: rgb(0 0 0 / 0.45);
+	}
+	.share-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin: 0 0 0.75rem;
+	}
+	.share-head h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.share-close {
+		padding: 0.2rem 0.65rem;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
 	}
 	.share form {
 		display: grid;
@@ -359,14 +423,6 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 	}
 	.share button[type="submit"] {
 		justify-self: start;
-		padding: 0.65rem 1.1rem;
-		border: 0;
-		border-radius: 999px;
-		background: var(--accent-ink);
-		color: var(--on-accent);
-		font: inherit;
-		font-weight: 700;
-		cursor: pointer;
 	}
 	.section-title {
 		display: flex;
