@@ -1,6 +1,6 @@
 # Office Hub
 
-The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, Node, SQLite) running in the `hub` LXC at http://hub.local. Staff browse over plain HTTP and sign in with a PIN; only the operator has an admin account (passkey, at https://hub.local/_emdash/admin).
+The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, Node, SQLite) running in the `hub` LXC at http://hub.local. Staff browse over plain HTTP and sign in with a PIN; maintainers have admin accounts (passkey, at https://hub.local/_emdash/admin).
 
 ## Pages
 
@@ -17,8 +17,27 @@ The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, No
 
 - **Content:** announcements, events, people (switch off "Currently works here" for leavers), quiz questions (approve AI drafts), handbook pages, gallery photos (tick "featured" to show one big; delete unwanted staff uploads).
 - **Staff PINs:** open a person in People; the "Staff PIN" panel generates or resets their PIN.
-- **Colour theme:** Plugins → Hub background jobs → Theme. Auto picks a rainbow colour by weekday and switches on date themes (Halloween, Victory Day, Independence Day, Pohela Boishakh, New Year) by themselves; you can also choose Random or any theme (GTA 6, Eid, Winter…).
+- **Colour theme:** Plugins → Hub background jobs → Theme. Auto picks a rainbow colour by weekday and switches on date themes (Halloween, Victory Day, Independence Day, Pohela Boishakh, New Year, Harry Potter on 31 July) by themselves; you can also choose Random or any theme (GTA 6, Eid, Winter…). To preview themes on any page, press T (next) or Shift+T (previous); this isn't saved.
 - **AI jobs:** Plugins → Hub background jobs → AI jobs (queue status, test prompt).
+
+## Maintainers
+
+Two or three people run the hub. Each has their own admin account, MCP token and GitHub access, so one can be removed without touching the others.
+
+- **Accounts:** Admin → Users → Invite. Maintainers get **Admin**; someone who only edits content gets **Editor**. Invites arrive by email (SMTP, see [infra/README.md](infra/README.md)).
+- **Trust the hub's certificate, once per device.** HTTPS uses Caddy's own certificate authority (there is no public domain), and passkeys need HTTPS. Staff on plain HTTP do not need this.
+
+  ```bash
+  scp root@hub.local:/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt hub-ca.crt
+  # macOS
+  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain hub-ca.crt
+  # Windows (admin prompt)
+  certutil -addstore -f ROOT hub-ca.crt
+  ```
+
+- **Content by AI (MCP):** Admin → API tokens → create a token for yourself. Point your AI client at `https://hub.local/_emdash/api/mcp` with header `Authorization: Bearer <token>`. Node-based clients that ignore the system certificate store also need `NODE_EXTRA_CA_CERTS=/path/to/hub-ca.crt`.
+- **Code by AI:** work in this repo, open a pull request, merge to `main`. It is live within about 5 minutes (see Deploy).
+- **SSH** to the container (rarely needed): add the person's public key to `/root/.ssh/authorized_keys` on the hub.
 
 ## Changing things
 
@@ -38,8 +57,10 @@ scripts/smoke.sh  # build, run against a throwaway DB, check the main pages
 
 ## Deploy
 
+Merging to `main` deploys automatically: GitHub builds and tests it, and the hub installs the new build within 5 minutes. If it fails to start, the previous version stays live.
+
 ```bash
-./deploy.sh       # builds locally, copies to root@hub.local, restarts the service
+./deploy.sh       # by hand: build locally, install on root@hub.local (first install, or GitHub down)
 ```
 
 Server setup, environment variables (`AI_TEXT_URL`, `AI_IMAGE_URL`, `TEA_STATS_URL`, …) and the AI container are in [infra/README.md](infra/README.md).

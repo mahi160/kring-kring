@@ -52,7 +52,8 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 - Page views never do AI work or slow network calls; external data is fetched server-side, cached, and warmed by the cron tick.
 - Staff POST endpoints check `isCrossSite` (403) and take the staff id from the cookie only.
 - Colours come from theme tokens (`--paper`, `--sheet`, `--ink`, `--slate`, `--rule`, `--accent`, `--accent-ink`, `--highlight`, `--note-*`, `--banner-*`); never hard-code a colour a theme should change. Check the dark `halloween` theme.
-- Schema reaches production via `deploy.sh` (seed in skip mode adds new collections; new fields on an existing collection need an update-mode step like the `people` one).
+- Merging to `main` deploys to production automatically (`.github/workflows/deploy.yml` → `infra/hub-update`); `deploy.sh` is the manual path.
+- Schema reaches production via `infra/install.sh` (seed in skip mode adds new collections; new fields on an existing collection need an update-mode step like the `people` one).
 
 ## Pages
 
