@@ -152,8 +152,10 @@ const until = (a: (typeof announcements)[number]) =>
 					<div class="conditions">
 						{weather && (
 							<p class="weather">
-								<span class="sticker temp">{Math.round(weather.temperatureC)}°</span>
-								<WeatherIcon name={weather.icon} />
+								<span class="reading">
+									<WeatherIcon name={weather.icon} />
+									<span class="sticker temp">{Math.round(weather.temperatureC)}°</span>
+								</span>
 								<span>
 									{weather.condition}
 									<span class="sub">in Dhaka right now</span>
@@ -162,11 +164,13 @@ const until = (a: (typeof announcements)[number]) =>
 						)}
 						{air && (
 							<p class="weather">
-								<span class:list={["sticker", "aqi", air.aqi > 150 ? "bad" : air.aqi > 100 ? "meh" : "ok"]}>
-									<span class="visually-hidden">Air quality index </span>
-									{air.aqi}
+								<span class="reading">
+									<AqiFace mood={aqiMood(air.aqi)} />
+									<span class:list={["sticker", "aqi", air.aqi > 150 ? "bad" : air.aqi > 100 ? "meh" : "ok"]}>
+										<span class="visually-hidden">Air quality index </span>
+										{air.aqi}
+									</span>
 								</span>
-								<AqiFace mood={aqiMood(air.aqi)} />
 								<span>
 									Air: {air.level}
 									<span class="sub">{air.tip ?? "US AQI"}</span>
@@ -401,23 +405,32 @@ const until = (a: (typeof announcements)[number]) =>
 		margin: 0;
 		line-height: 1.3;
 	}
-	/* Round stickers, like the pushpins */
+	/* Icon with its reading stuck on the corner as a round sticker, like a pushpin */
+	.reading {
+		position: relative;
+		flex: none;
+		padding-inline-end: 1.5rem;
+		padding-block-end: 0.5rem;
+	}
 	.sticker {
+		position: absolute;
+		inset-inline-end: 0;
+		inset-block-end: 0;
 		display: grid;
 		place-items: center;
-		flex: none;
-		width: 3.5rem;
+		width: 2.75rem;
 		aspect-ratio: 1;
 		border-radius: 50%;
 		background: var(--note-yellow);
 		font-family: var(--font-display);
 		font-weight: 800;
-		font-size: 1.6rem;
+		font-size: 1.25rem;
+		box-shadow: 0 0 0 3px var(--paper);
 		rotate: 8deg;
 		font-variant-numeric: tabular-nums;
 	}
 	.aqi {
-		font-size: 1.35rem;
+		font-size: 1.05rem;
 		rotate: -6deg;
 	}
 	.aqi.ok {
