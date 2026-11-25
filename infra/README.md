@@ -26,10 +26,48 @@ Anything unset turns the feature off; the hub works without all of them.
 | `TEA_STATS_URL`       | Tea break card                    | `https://tea.example/api/stats`       |
 | `TEA_STATS_TOKEN`     | Tea break card (bearer token)     | same value as tea-app's `STATS_TOKEN`   |
 | `NODE_EXTRA_CA_CERTS` | Trusting tea-app's Caddy CA      | `/etc/hub/tea-ca.crt`               |
+| `EMAIL_SMTP_HOST`     | Invites, magic-link sign-in       | `smtp.gmail.com`                         |
+| `EMAIL_SMTP_PORT`     | (465 = TLS)                       | `465`                                    |
+| `EMAIL_SMTP_USER`     | Google Workspace account          | `hub@yourcompany.com`                    |
+| `EMAIL_SMTP_PASS`     | That account's app password       | 16 characters, no spaces                 |
+| `EMAIL_SMTP_FROM`     | Sender shown on emails            | `Office Hub <hub@yourcompany.com>`       |
+
+Email goes out through Google; nothing runs on the hub. Use a dedicated Workspace
+account with 2-Step Verification on, and create an app password for it
+(Google Account → Security → App passwords). Admin → Settings → Email can send a test.
 
 The tea app serves HTTPS with Caddy's internal CA. Copy its root certificate to the hub
 once (`/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt` on tea-app →
 `/etc/hub/tea-ca.crt`, readable by group `hub`) and point `NODE_EXTRA_CA_CERTS` at it.
+
+## Automatic deploys
+
+Every push to `main` on GitHub runs `.github/workflows/deploy.yml`: tests, typecheck,
+smoke check, build, then publishes the bundle as the `hub-build` release. On the hub,
+`hub-update.timer` checks that release every 5 minutes and installs anything new with
+`install.sh`. GitHub never connects to the office; the hub only makes outbound requests.
+
+If the new version does not start, `install.sh` puts the previous one back and that
+build is not tried again (`/opt/hub/failed-build`); the next push to `main` is.
+Check with `journalctl -u hub-update -n 50` and `cat /opt/hub/deployed-build`.
+
+One-time setup:
+
+1. On GitHub, create a fine-grained token: this repository only, **Contents: read-only**.
+2. On the hub:
+
+   ```bash
+   install -m 600 /dev/null /etc/hub/update.env
+   nano /etc/hub/update.env   # GITHUB_REPO=owner/office-hub and GITHUB_TOKEN=github_pat_...
+   systemctl enable --now hub-update.timer
+   ```
+
+   (`hub-update` and its timer are installed by any deploy; on a fresh container run
+   `./deploy.sh` once first.)
+3. In the repo settings, protect `main`: pull requests required, the `build` check must pass.
+
+When the token expires, the timer logs `GitHub API returned HTTP 401`; put a new one in
+`update.env`.
 
 ## Background work
 
