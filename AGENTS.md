@@ -22,8 +22,8 @@ The admin UI is at `http://localhost:4321/_emdash/admin`.
 | `emdash-env.d.ts`        | Generated types for collections (auto-regenerated on dev server start)             |
 | `src/layouts/Base.astro` | Base layout: theme, banner header, nav, staff sign-in state                        |
 | `src/pages/`             | Astro pages -- all server-rendered                                                 |
-| `src/plugins/`           | `staff-pins` (PIN panel on people) and `hub-jobs` (cron tick, AI jobs, Theme page) |
-| `src/staff/`             | Hub's own SQLite (`data/staff.db`): PINs, quiz answers, reactions, settings        |
+| `src/plugins/`           | `staff-pins` (PIN panel on people) and `hub-jobs` (cron tick, AI jobs, Theme and Metrics pages) |
+| `src/staff/`             | Hub's own SQLite (`data/staff.db`): PINs, quiz answers, reactions, settings, visit counts        |
 | `src/jobs/`              | Background work: AI queue, quiz drafts, digest, banner; `backgroundTick` per minute |
 | `src/styles/`            | `theme.css` (tokens, base styles), `themes.css` (one block per colour theme)       |
 | `deploy.sh`, `infra/`    | Deploy to the hub container; server and AI container setup                        |

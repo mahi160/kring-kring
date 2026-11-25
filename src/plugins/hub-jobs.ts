@@ -4,7 +4,8 @@ import { aiConfig } from "../jobs/ai.ts";
 import { backgroundTick, drainQueue, jobQueue } from "../jobs/index.ts";
 import type { Job } from "../jobs/queue.ts";
 import type { DraftWriter, KnownQuestion } from "../jobs/quiz-drafts.ts";
-import { hubSettings } from "../staff/index.ts";
+import { daysBefore, dhakaDay } from "../comics/store.ts";
+import { hubSettings, staffAuth, visits } from "../staff/index.ts";
 import { DEFAULT_THEME_SETTING, THEMES, THEME_SETTING_KEY, resolveTheme, themeById } from "../utils/theme.ts";
 
 const TICK = "tick";
@@ -160,8 +161,115 @@ function themePage(notice?: { title: string; description: string; variant?: "def
 	};
 }
 
+const METRIC_DAYS = 30;
+
+async function activePeople(ctx: PluginContext): Promise<{ id: string; name: string }[]> {
+	const content = ctx.content;
+	if (!content) return [];
+	const out: { id: string; name: string }[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await content.list("people", { limit: 100, cursor });
+		for (const { id, data } of page.items) {
+			if (data.active === false || typeof data.name !== "string") continue;
+			const preferred = typeof data.preferred_name === "string" ? data.preferred_name.trim() : "";
+			out.push({ id, name: preferred || data.name });
+		}
+		cursor = page.hasMore ? page.cursor : undefined;
+	} while (cursor);
+	return out;
+}
+
+async function metricsPage(ctx: PluginContext) {
+	const today = dhakaDay(new Date());
+	const from = daysBefore(today, METRIC_DAYS - 1);
+	const v = visits();
+	const people = await activePeople(ctx);
+	const activity = new Map(v.people(from, today).map((a) => [a.personId, a]));
+	const withPin = people.filter((p) => staffAuth().pinSetAt(p.id)).length;
+	const daily = v.daily(from, today);
+	const todayStats = daily.find((d) => d.day === today);
+	const seen = people.filter((p) => activity.get(p.id)?.days);
+	const rows = people
+		.map((p) => {
+			const a = activity.get(p.id);
+			return {
+				name: p.name,
+				last: a?.lastDay ?? "Never",
+				days: String(a?.days ?? 0),
+				views: String(a?.views ?? 0),
+				pin: staffAuth().pinSetAt(p.id) ? "Set" : "Not set",
+			};
+		})
+		.sort((a, b) => (a.last === b.last ? a.name.localeCompare(b.name) : a.last === "Never" ? 1 : b.last === "Never" ? -1 : b.last.localeCompare(a.last)));
+	return {
+		blocks: [
+			{ type: "header", text: "Metrics" },
+			{
+				type: "context",
+				text: `Page views on the hub, last ${METRIC_DAYS} days (Dhaka time). A visitor is one browser; staff are named only while signed in.`,
+			},
+			{
+				type: "stats",
+				items: [
+					{ label: "Visitors today", value: String(todayStats?.visitors ?? 0), description: `${todayStats?.signedIn ?? 0} signed in` },
+					{ label: `Visitors, ${METRIC_DAYS} days`, value: String(v.uniqueVisitors(from, today)) },
+					{ label: "Staff seen signed in", value: `${seen.length} / ${people.length}`, description: `last ${METRIC_DAYS} days` },
+					{ label: "PINs set", value: `${withPin} / ${people.length}` },
+				],
+			},
+			{ type: "header", text: "Staff" },
+			{
+				type: "table",
+				columns: [
+					{ key: "name", label: "Name" },
+					{ key: "last", label: "Last visit (signed in)" },
+					{ key: "days", label: `Days active (${METRIC_DAYS} d)` },
+					{ key: "views", label: `Page views (${METRIC_DAYS} d)` },
+					{ key: "pin", label: "PIN", format: "badge" },
+				],
+				rows,
+				page_action_id: "metrics_people",
+				empty_text: "No active people.",
+			},
+			{ type: "header", text: "By day" },
+			{
+				type: "table",
+				columns: [
+					{ key: "day", label: "Day" },
+					{ key: "visitors", label: "Visitors" },
+					{ key: "signedIn", label: "Signed in" },
+					{ key: "views", label: "Page views" },
+					{ key: "quizAnswers", label: "Quiz answers" },
+				],
+				rows: daily.map((d) => ({
+					day: d.day,
+					visitors: String(d.visitors),
+					signedIn: String(d.signedIn),
+					views: String(d.views),
+					quizAnswers: String(d.quizAnswers),
+				})),
+				page_action_id: "metrics_days",
+				empty_text: "No visits yet.",
+			},
+			{ type: "header", text: "By page" },
+			{
+				type: "table",
+				columns: [
+					{ key: "page", label: "Page" },
+					{ key: "views", label: `Views (${METRIC_DAYS} d)` },
+				],
+				rows: v.pages(from, today).map((p) => ({ page: p.page, views: String(p.views) })),
+				page_action_id: "metrics_pages",
+				empty_text: "No page views yet.",
+			},
+		],
+	};
+}
+
 async function adminRoute(ctx: RouteContext) {
 	const i = input(ctx);
+	if (i.page === "/metrics") return metricsPage(ctx);
 	if (i.page === "/theme") {
 		if (i.type === "form_submit" && i.action_id === "save_theme") {
 			const value = i.values.theme;
@@ -197,6 +305,7 @@ export function createPlugin() {
 			pages: [
 				{ path: "/jobs", label: "AI jobs" },
 				{ path: "/theme", label: "Theme" },
+				{ path: "/metrics", label: "Metrics" },
 			],
 		},
 		hooks: {

@@ -6,6 +6,7 @@ import { StaffAuth } from "./auth.ts";
 import { DailyQuiz } from "./quiz.ts";
 import { HubSettings } from "./settings.ts";
 import { UploadLimit } from "./uploads.ts";
+import { Visits } from "./visits.ts";
 
 // Site-owned data (staff, quiz, comics, jobs) beside EmDash's hub.db; the name predates
 // the other tables. Paths resolve against the service's WorkingDirectory.
@@ -20,6 +21,7 @@ let quiz: DailyQuiz | undefined;
 let comics: ComicStore | undefined;
 let settings: HubSettings | undefined;
 let uploads: UploadLimit | undefined;
+let visitLog: Visits | undefined;
 
 export function staffDb(): DatabaseSync {
 	if (!db) {
@@ -53,6 +55,12 @@ export function hubSettings(): HubSettings {
 export function uploadLimit(): UploadLimit {
 	uploads ??= new UploadLimit(staffDb());
 	return uploads;
+}
+
+export function visits(): Visits {
+	dailyQuiz(); // Visits.daily reads quiz_answers, which DailyQuiz creates.
+	visitLog ??= new Visits(staffDb());
+	return visitLog;
 }
 
 /** The signed-in staff member's person ID, or null. */
