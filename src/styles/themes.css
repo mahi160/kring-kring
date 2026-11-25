@@ -4,6 +4,9 @@
  * Keep the contrast pairs checked by tests/themes.test.ts: ink on paper/sheet/notes,
  * slate on paper, --accent-ink on paper/sheet, --on-accent on --accent-ink,
  * --on-highlight on --highlight.
+ * Special themes may also set --backdrop (any `background` value, drawn over the paper;
+ * keep it faint), --corner-art (an image for the bottom corner) and --corner-size (its width). SVG data URIs must
+ * not contain ";" and need "#" written as %23.
  */
 
 /* Weekday rainbow (VIBGYOR) */
@@ -118,6 +121,9 @@
 	--note-sky: #2d2a5e;
 	--banner-a: #3a1f5c;
 	--banner-b: #6b3200;
+	--backdrop: radial-gradient(circle at 88% 6%, rgb(255 154 61 / 0.16), transparent 22rem),
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='180'><g fill='%23b36cff' fill-opacity='0.16'><path id='b' d='M10 30c6-8 14-9 19-4 1-4 3-6 5-6l3 4 3-4c2 0 4 2 5 6 5-5 13-4 19 4-7-1-12 0-15 4-3-3-7-3-10 0l-2 3-2-3c-3-3-7-3-10 0-3-4-8-5-15-4z'/><use href='%23b' transform='translate(130 90) scale(.7)'/><use href='%23b' transform='translate(160 10) scale(.45)'/></g></svg>");
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 112'><path d='M60 26c0-9 4-16 12-19' stroke='%237da53a' stroke-width='7' fill='none' stroke-linecap='round'/><g fill='%23ff7a1a' stroke='%231a0f00' stroke-width='3'><ellipse cx='38' cy='70' rx='30' ry='38'/><ellipse cx='82' cy='70' rx='30' ry='38'/><ellipse cx='60' cy='70' rx='24' ry='40'/></g><g fill='%23ffd23d'><path d='M42 56l11 14H31zM78 56l11 14H67zM34 84q26 22 52 0q-6 6-10 4l-4 6-6-6-6 6-6-6-6 6-6-6-4-6q-4 2-4-4z'/></g></svg>");
 	color-scheme: dark;
 }
 
@@ -137,6 +143,11 @@
 	--note-sky: #dccbff;
 	--banner-a: #ff2e93;
 	--banner-b: #ff9f1c;
+	--backdrop: linear-gradient(to top, rgb(255 46 147 / 0.16), rgb(255 159 28 / 0.08) 30%, transparent 60%),
+		url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><g fill='%232a1245' fill-opacity='0.07'><path id='p' d='M40 100c1-20-2-36-9-50l3-1c7 14 9 30 9 51zM34 50c-8-6-18-5-25 1 8-2 16-1 23 3zM34 50c2-9 10-14 20-13-8 2-14 7-17 14zM34 50c8-3 17-1 23 6-8-3-15-3-22-3zM34 50c-3-8-11-12-19-10 8 1 13 6 16 12z'/><use href='%23p' transform='translate(120 100) scale(.7)'/></g></svg>");
+	--corner-size: clamp(8rem, 4rem + 14vw, 19rem);
+	/* Sunset over the beach: retro sun, palm, and a flamingo */
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23ffd23d'/><stop offset='1' stop-color='%23ff2e93'/></linearGradient></defs><circle cx='104' cy='110' r='70' fill='url(%23s)'/><g fill='%23fff1f8'><rect x='30' y='120' width='150' height='4'/><rect x='30' y='134' width='150' height='6'/><rect x='30' y='150' width='150' height='8'/><rect x='30' y='166' width='150' height='10'/></g><rect x='0' y='176' width='200' height='24' rx='4' fill='%2300c2c7'/><path d='M14 188q10-6 20 0t20 0M120 192q10-6 20 0t20 0' stroke='%23ffffff' stroke-width='3' fill='none' stroke-linecap='round'/><g fill='%232a1245'><path d='M164 180c2-40-4-72-18-100l5-3c14 28 20 62 19 103z'/><path transform='translate(60 24)' d='M88 54c-14-10-32-8-44 2 14-4 28-2 40 6zM88 54c4-16 18-24 34-22-14 4-24 12-30 24zM88 54c14-6 30-2 40 10-14-6-26-6-38-6zM88 54c-6-14-20-20-34-18 14 2 24 10 30 22z'/></g><g stroke='%232a1245' stroke-linecap='round' stroke-linejoin='round' fill='none'><path d='M50 140v42M58 140l8 18-8 6' stroke-width='3'/><path d='M70 128c12-14 6-30-4-38-6-6-4-16 6-18' stroke-width='10'/><path d='M70 128c12-14 6-30-4-38-6-6-4-16 6-18' stroke='%23ff4fa3' stroke-width='5'/></g><ellipse cx='54' cy='132' rx='22' ry='13' transform='rotate(-12 54 132)' fill='%23ff4fa3' stroke='%232a1245' stroke-width='3'/><path d='M42 128q14-8 26 4' stroke='%232a1245' stroke-width='2.5' fill='none' stroke-linecap='round'/><circle cx='76' cy='72' r='7' fill='%23ff4fa3' stroke='%232a1245' stroke-width='3'/><path d='M82 68l10 6-5 9z' fill='%232a1245'/><path d='M70 69h12' stroke='%232a1245' stroke-width='4' stroke-linecap='round'/></svg>");
 }
 
 /* Bangladesh flag: green and red */
@@ -151,6 +162,9 @@
 	--note-sky: #d9f3e5;
 	--banner-a: #006a4e;
 	--banner-b: #f42a41;
+	/* The red sun rising */
+	--backdrop: radial-gradient(circle at 92% 4%, rgb(244 42 65 / 0.14) 0 14rem, transparent 14.1rem),
+		radial-gradient(ellipse at 50% 130%, rgb(0 106 78 / 0.16), transparent 60%);
 }
 
 [data-theme="independence-day"] {
@@ -165,6 +179,12 @@
 	--note-sky: #d9f3e5;
 	--banner-a: #f42a41;
 	--banner-b: #006a4e;
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><g fill-opacity='0.16'><circle cx='18' cy='24' r='5' fill='%23f42a41'/><circle cx='104' cy='60' r='4' fill='%23006a4e'/><circle cx='136' cy='138' r='6' fill='%23f42a41'/><path id='t' d='M60 96l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z' fill='%23006a4e'/><use href='%23t' transform='translate(70 -90)' fill='%23f42a41'/></g></svg>");
+}
+
+/* Both national days fly the flag */
+:is([data-theme="victory-day"], [data-theme="independence-day"]) {
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140'><rect x='10' y='8' width='6' height='130' rx='3' fill='%236b5442'/><circle cx='13' cy='8' r='5' fill='%23d4a017'/><path d='M16 14q30-10 60 0t60 0v72q-30 10-60 0t-60 0z' fill='%23006a4e'/><circle cx='70' cy='50' r='22' fill='%23f42a41'/></svg>");
 }
 
 [data-theme="pohela-boishakh"] {
@@ -179,6 +199,9 @@
 	--note-sky: #fff6e0;
 	--banner-a: #e5252a;
 	--banner-b: #fff4d6;
+	/* Alpona: rice-paste floral motifs */
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><g fill='none' stroke='%23e5252a' stroke-opacity='0.12' stroke-width='2' transform='translate(60 60)'><circle r='7'/><circle r='26'/><ellipse id='p' cy='-16' rx='4.5' ry='9'/><use href='%23p' transform='rotate(45)'/><use href='%23p' transform='rotate(90)'/><use href='%23p' transform='rotate(135)'/><use href='%23p' transform='rotate(180)'/><use href='%23p' transform='rotate(225)'/><use href='%23p' transform='rotate(270)'/><use href='%23p' transform='rotate(315)'/></g><g fill='%23e5252a' fill-opacity='0.12'><circle cx='0' cy='0' r='3'/><circle cx='120' cy='0' r='3'/><circle cx='0' cy='120' r='3'/><circle cx='120' cy='120' r='3'/></g></svg>");
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-60 -60 120 120'><g fill='%23ffc20e' stroke='%23b3141b' stroke-width='2.5'><ellipse id='q' cy='-36' rx='10' ry='21'/><use href='%23q' transform='rotate(30)'/><use href='%23q' transform='rotate(60)'/><use href='%23q' transform='rotate(90)'/><use href='%23q' transform='rotate(120)'/><use href='%23q' transform='rotate(150)'/><use href='%23q' transform='rotate(180)'/><use href='%23q' transform='rotate(210)'/><use href='%23q' transform='rotate(240)'/><use href='%23q' transform='rotate(270)'/><use href='%23q' transform='rotate(300)'/><use href='%23q' transform='rotate(330)'/></g><circle r='18' fill='%23e5252a' stroke='%23b3141b' stroke-width='2.5'/><circle r='7' fill='%23fff4d6'/></svg>");
 }
 
 /* Manual only: the date moves every year */
@@ -194,6 +217,8 @@
 	--note-sky: #d8efe6;
 	--banner-a: #1f8a5b;
 	--banner-b: #e9c75d;
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><g fill='%23d4a017' fill-opacity='0.22'><path d='M40 16a18 18 0 1 0 14 28a14 14 0 1 1-14-28z'/><path id='t' d='M116 92l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z'/><use href='%23t' transform='translate(-60 40) scale(.8)'/><circle cx='120' cy='30' r='2.5'/><circle cx='20' cy='120' r='2'/></g></svg>");
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140'><path d='M84 0v26M24 0v52' stroke='%23d4a017' stroke-width='2'/><path d='M84 26a40 40 0 1 0 30 62a32 32 0 1 1-30-62z' fill='%23e9c75d' stroke='%2314724a' stroke-width='3'/><g stroke='%2314724a' stroke-width='2.5'><path d='M16 52h16l4 8v30l-6 8H18l-6-8V60z' fill='%231f8a5b'/><path d='M18 66h12v20H18z' fill='%23ffd86b'/></g></svg>");
 }
 
 [data-theme="new-year"] {
@@ -208,6 +233,8 @@
 	--note-sky: #d3e7ff;
 	--banner-a: #f2b705;
 	--banner-b: #1a1a1a;
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g fill-opacity='0.3'><rect x='20' y='24' width='10' height='4' rx='1' fill='%23f2b705' transform='rotate(30 25 26)'/><rect x='110' y='40' width='10' height='4' rx='1' fill='%23e53935' transform='rotate(-40 115 42)'/><rect x='70' y='110' width='10' height='4' rx='1' fill='%232f80ed' transform='rotate(70 75 112)'/><rect x='150' y='140' width='10' height='4' rx='1' fill='%2334a853' transform='rotate(15 155 142)'/><circle cx='60' cy='60' r='3' fill='%23e53935'/><circle cx='150' cy='90' r='3' fill='%23f2b705'/><circle cx='30' cy='150' r='3' fill='%238b5cf6'/></g></svg>");
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-70 -70 140 140'><g stroke-width='4' stroke-linecap='round'><g id='r' stroke='%23f2b705'><path d='M0-18V-46'/><path d='M0-18V-46' transform='rotate(45)'/><path d='M0-18V-46' transform='rotate(90)'/><path d='M0-18V-46' transform='rotate(135)'/></g><use href='%23r' transform='rotate(180)'/><g stroke='%23e53935' transform='rotate(22.5)'><path d='M0-26V-38'/><path d='M0-26V-38' transform='rotate(90)'/><path d='M0-26V-38' transform='rotate(180)'/><path d='M0-26V-38' transform='rotate(270)'/></g></g><g fill='%23f2b705'><circle cy='-56' r='4'/><circle cx='56' r='4'/><circle cy='56' r='4'/><circle cx='-56' r='4'/></g><circle r='8' fill='%231a1a1a'/></svg>");
 }
 
 /* Manual only */
@@ -223,4 +250,30 @@
 	--note-sky: #cfe6f7;
 	--banner-a: #cfe6f7;
 	--banner-b: #ffffff;
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g stroke='%232b7fb8' stroke-opacity='0.2' stroke-width='2' stroke-linecap='round'><g id='f' transform='translate(40 40)'><path d='M0-12V12M-10.4-6L10.4 6M-10.4 6L10.4-6'/></g><use href='%23f' transform='translate(90 70) scale(.7)'/><use href='%23f' transform='translate(20 110) scale(.5)'/></g></svg>");
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 140'><g fill='%23ffffff' stroke='%231d6491' stroke-width='3'><circle cx='60' cy='104' r='32'/><circle cx='60' cy='52' r='22'/></g><path d='M38 68q22 10 44 0v8q-22 10-44 0z' fill='%23e53935'/><path d='M76 70l8 22-8 2z' fill='%23e53935'/><g fill='%231d6491'><circle cx='52' cy='46' r='3'/><circle cx='68' cy='46' r='3'/><circle cx='60' cy='94' r='3'/><circle cx='60' cy='110' r='3'/></g><path d='M60 52l16 4-16 4z' fill='%23fb8c00'/><path d='M36 30h48l-4-6H40zM44 24V6h32v18z' fill='%2316201b'/></svg>");
+}
+
+/* Hogwarts parchment; notes in the four house colours. Auto on Harry's birthday. */
+[data-theme="harry-potter"] {
+	--paper: #f3e9d2;
+	--sheet: #fbf5e6;
+	--ink: #2b1d0e;
+	--slate: #5e4b33;
+	--rule: #dccfb2;
+	--dot: rgb(43 29 14 / 0.12);
+	--accent: #ae0001;
+	--accent-ink: #740001;
+	--accent-soft: #d3a625;
+	--highlight: #d3a625;
+	--note-yellow: #f6e3a1;
+	--note-mint: #cfe3d2;
+	--note-pink: #f2cfc8;
+	--note-sky: #d3dcef;
+	--banner-a: #740001;
+	--banner-b: #d3a625;
+	--backdrop: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><g fill='%23a67c00' fill-opacity='0.25'><path id='s' d='M30 20l2 8 8 2-8 2-2 8-2-8-8-2 8-2z'/><use href='%23s' transform='translate(90 70) scale(.7)'/><use href='%23s' transform='translate(20 110) scale(.5)'/><path d='M126 14l-8 14h6l-6 14 12-18h-6l6-10z'/></g><g fill-opacity='0.35' stroke-opacity='0.35'><rect x='66' y='128' width='7' height='20' rx='1' fill='%23fbf5e6' stroke='%23a67c00'/><path d='M69.5 116q5 6 0 10q-5-4 0-10z' fill='%23ffc20e'/></g></svg>");
+	--corner-size: clamp(8rem, 4rem + 14vw, 19rem);
+	/* A talking wizard hat, round glasses, a wand mid-spell and the Golden Snitch */
+	--corner-art: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><g transform='translate(112 4) scale(.55)'><g fill='%23fbf5e6' stroke='%235e4b33' stroke-width='3'><path d='M66 52C46 30 20 22 4 26c12 4 18 10 22 16-8 0-14 2-18 6 12 0 22 4 30 10-6 2-10 6-12 10 16-4 30-6 40-16z'/><path d='M94 52c20-22 46-30 62-26-12 4-18 10-22 16 8 0 14 2 18 6-12 0-22 4-30 10 6 2 10 6 12 10-16-4-30-6-40-16z'/></g><circle cx='80' cy='54' r='16' fill='%23d3a625' stroke='%237a5a00' stroke-width='3'/></g><g fill='%236b4a2b' stroke='%232b1d0e' stroke-width='3' stroke-linejoin='round'><ellipse cx='80' cy='150' rx='62' ry='12'/><path d='M42 148C54 110 62 70 74 40c6-14 22-18 34-6-10 2-16 12-14 26 4 30 14 60 24 88z'/></g><g stroke='%232b1d0e' stroke-width='3' fill='none' stroke-linecap='round'><path d='M62 104q8-7 14 0M86 104q8-7 14 0M68 126q14 8 28 0M56 140q24 6 50 0'/></g><g stroke='%232b1d0e' stroke-width='4' fill='%23ffffff' fill-opacity='0.5'><circle cx='66' cy='178' r='15'/><circle cx='104' cy='178' r='15'/><path d='M81 176q4-5 8 0M51 175l-10-5M119 175l10-5' fill='none'/></g><path d='M24 52l-10 18h8l-8 18 16-24h-8l8-12z' fill='%23d3a625' stroke='%237a5a00' stroke-width='2' stroke-linejoin='round'/><g stroke-linecap='round'><path d='M192 194L150 112' stroke='%235a3a1e' stroke-width='6'/><path d='M192 194l-12-24' stroke='%232b1d0e' stroke-width='10'/></g><g fill='%23ffc20e' stroke='%237a5a00' stroke-width='1.5'><defs><path id='k' d='M0-12l3 9 9 3-9 3-3 9-3-9-9-3 9-3z'/></defs><use href='%23k' transform='translate(144 98)'/><use href='%23k' transform='translate(164 78) scale(.6)'/><use href='%23k' transform='translate(126 84) scale(.5)'/></g><g fill='%23ffc20e'><circle cx='170' cy='96' r='2.5'/><circle cx='132' cy='76' r='2'/><circle cx='156' cy='66' r='2'/></g></svg>");
 }

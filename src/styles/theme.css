@@ -19,6 +19,9 @@
 	--note-sky: #d3e7ff;
 	--banner-a: #ffe9a8;
 	--banner-b: #fff2c9;
+	/* Decoration for special themes: a pattern over the paper and art pinned to the bottom corner */
+	--backdrop: none;
+	--corner-art: none;
 
 	--measure: 44rem;
 	--gutter: clamp(1.25rem, 0.75rem + 2.5vw, 2.5rem);
@@ -43,6 +46,33 @@ body {
 	font-size: 1.0625rem;
 	line-height: 1.55;
 	-webkit-font-smoothing: antialiased;
+}
+
+/* Fixed behind all content, so cards and notes keep their own backgrounds. */
+body::before,
+body::after {
+	content: "";
+	position: fixed;
+	z-index: -1;
+	pointer-events: none;
+}
+body::before {
+	inset: 0;
+	background: var(--backdrop);
+}
+body::after {
+	inset-block-end: 1rem;
+	inset-inline-end: 1rem;
+	width: var(--corner-size, clamp(7rem, 4rem + 10vw, 14rem));
+	aspect-ratio: 1;
+	background: var(--corner-art) center bottom / contain no-repeat;
+	opacity: 0.4;
+}
+/* Only at full strength where the page leaves a margin wide enough to hold it */
+@media (min-width: 100rem) {
+	body::after {
+		opacity: 1;
+	}
 }
 
 /* The web fonts have no Bengali glyphs; prefer a real Bengali face over a random fallback. */

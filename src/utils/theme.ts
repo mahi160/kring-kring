@@ -29,6 +29,7 @@ export const THEMES: readonly Theme[] = [
 	{ id: "eid", label: "Eid", emoji: "🌙", color: "#1f8a5b" },
 	{ id: "new-year", label: "New Year", emoji: "🎉", color: "#f2b705", date: "01-01" },
 	{ id: "winter", label: "Winter", emoji: "❄️", color: "#2b7fb8" },
+	{ id: "harry-potter", label: "Harry Potter", emoji: "⚡", color: "#740001", date: "07-31" },
 ];
 
 // Sunday first, matching Date#getUTCDay.
