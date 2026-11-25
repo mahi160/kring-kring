@@ -3,7 +3,7 @@ import { getEmDashCollection } from "emdash";
 import Base from "../layouts/Base.astro";
 import { currentStaffId, isCrossSite, safeNext, setStaffCookie, staffAuth } from "../staff/index.ts";
 import { formatTime } from "../utils/dates";
-import { isActive } from "../utils/people";
+import { displayName, isActive } from "../utils/people";
 import "../styles/forms.css";
 
 const next = safeNext(Astro.url.searchParams.get("next"));
@@ -14,11 +14,13 @@ if (loadError) console.error("Failed to load people:", loadError);
 // Inactive people can't sign in: they aren't listed and a posted id is refused like any unknown one.
 const people = entries
 	.filter(isActive)
-	.map((p) => ({ id: p.data.id, name: p.data.name }))
+	.map((p) => ({ id: p.data.id, name: displayName(p.data) }))
 	.sort((a, b) => a.name.localeCompare(b.name));
 
 let error: string | null = null;
 let chosen = "";
+// First sign-in for someone with no PIN: they choose one and type it twice.
+let settingUp = false;
 if (Astro.request.method === "POST" && isCrossSite(Astro.request)) {
 	return new Response("Cross-site request blocked", { status: 403 });
 }
@@ -29,19 +31,41 @@ if (Astro.request.method === "POST") {
 	if (!people.some((p) => p.id === chosen)) {
 		error = "Pick your name from the list.";
 		Astro.response.status = 400;
+	} else if (form.has("confirm")) {
+		settingUp = true;
+		if (pin !== String(form.get("confirm") ?? "").trim()) {
+			error = "The two PINs don't match.";
+			Astro.response.status = 400;
+		} else {
+			const result = await staffAuth().claimPin(chosen, pin);
+			if (result.ok) {
+				setStaffCookie(Astro.cookies, result.token);
+				return Astro.redirect(next, 303);
+			}
+			if (result.reason === "taken") {
+				settingUp = false;
+				error = "This name already has a PIN. Sign in with it, or ask the office admin to reset it.";
+				Astro.response.status = 409;
+			} else {
+				error = "The PIN must be exactly 4 digits.";
+				Astro.response.status = 400;
+			}
+		}
 	} else {
 		const result = await staffAuth().signIn(chosen, pin);
 		if (result.ok) {
 			setStaffCookie(Astro.cookies, result.token);
 			return Astro.redirect(next, 303);
 		}
-		error =
-			result.reason === "no-pin"
-				? "You don't have a PIN yet. Ask the office admin for one."
-				: result.reason === "locked"
+		if (result.reason === "no-pin") {
+			settingUp = true;
+		} else {
+			error =
+				result.reason === "locked"
 					? `Too many wrong PINs. Try again after ${formatTime(new Date(result.lockedUntil))}.`
 					: `That PIN didn't match. ${result.triesLeft} ${result.triesLeft === 1 ? "try" : "tries"} left before a 15-minute lock.`;
-		Astro.response.status = result.reason === "locked" ? 429 : 401;
+			Astro.response.status = result.reason === "locked" ? 429 : 401;
+		}
 	}
 }
 ---
@@ -51,6 +75,7 @@ if (Astro.request.method === "POST") {
 		<section class="card" aria-labelledby="title">
 			<h1 id="title" class="card-title">Sign in</h1>
 			<p class="intro">For the daily quiz and reactions. Reading the hub never needs a PIN.</p>
+			{settingUp && <p class="intro" role="status">First time signing in? Choose a 4-digit PIN and type it twice. Remember it: you'll use it every time.</p>}
 			{error && <p class="error" role="alert" id="error">{error}</p>}
 			<form method="post">
 				<label for="person">Your name</label>
@@ -58,7 +83,7 @@ if (Astro.request.method === "POST") {
 					<option value="" disabled selected={!chosen}>Choose your name</option>
 					{people.map((p) => <option value={p.id} selected={p.id === chosen}>{p.name}</option>)}
 				</select>
-				<label for="pin">4-digit PIN</label>
+				<label for="pin">{settingUp ? "Choose a 4-digit PIN" : "4-digit PIN"}</label>
 				<input
 					id="pin"
 					name="pin"
@@ -70,9 +95,24 @@ if (Astro.request.method === "POST") {
 					required
 					aria-describedby={error ? "error" : undefined}
 				/>
-				<button type="submit">Sign in</button>
+				{settingUp && (
+					<>
+						<label for="confirm">Same PIN again</label>
+						<input
+							id="confirm"
+							name="confirm"
+							type="password"
+							inputmode="numeric"
+							pattern="[0-9]{4}"
+							maxlength="4"
+							autocomplete="off"
+							required
+						/>
+					</>
+				)}
+				<button type="submit">{settingUp ? "Set PIN and sign in" : "Sign in"}</button>
 			</form>
-			<p class="hint">No PIN or forgot it? Ask the office admin on Slack.</p>
+			<p class="hint">First time? Pick your name and the hub will ask you to choose a PIN. Forgot it? Ask the office admin on Slack.</p>
 		</section>
 	</div>
 </Base>

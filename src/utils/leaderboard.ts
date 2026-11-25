@@ -2,6 +2,7 @@ import { dailyQuiz } from "../staff/index.ts";
 import { quizClock, type QuizQuestion } from "../staff/quiz.ts";
 import { monthlyTotals, scoreDays, scoringDays, streaks } from "../staff/scoring.ts";
 import { MONTHS } from "./celebrations.ts";
+import { displayName } from "./people.ts";
 import { quizBank } from "./quiz.ts";
 
 export interface LeaderboardRow {
@@ -78,14 +79,14 @@ export function buildLeaderboard(
 
 export async function leaderboard(
 	now: Date,
-	people: { data: { id: string; name: string } }[],
+	people: { data: { id: string; name: string; preferred_name?: string | null } }[],
 	meId: string | null,
 ): Promise<Leaderboard> {
 	const bank = await quizBank();
 	return buildLeaderboard(
 		now,
 		bank,
-		people.map((p) => ({ id: p.data.id, name: p.data.name })),
+		people.map((p) => ({ id: p.data.id, name: displayName(p.data) })),
 		dailyQuiz().history(quizClock(now).day),
 		meId,
 	);

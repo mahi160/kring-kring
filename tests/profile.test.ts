@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupByTeam, initials, isActive } from "../src/utils/people.ts";
+import { displayName, groupByTeam, initials, isActive, matchesPerson } from "../src/utils/people.ts";
 import { MAX_PHOTO_BYTES, parseProfile } from "../src/utils/profile.ts";
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
@@ -13,6 +13,7 @@ const formOf = (fields: Record<string, string | File>) => {
 	return form;
 };
 const valid = {
+	preferred_name: "  Rina   A. ",
 	team: "Design",
 	designation: "Product Designer",
 	birthday_month: "March",
@@ -41,6 +42,7 @@ test("valid input yields only the allowed keys, typed", async () => {
 		ok: true,
 		values: undefined,
 		data: {
+			preferred_name: "Rina A.",
 			team: "Design",
 			designation: "Product Designer",
 			birthday_month: "March",
@@ -64,6 +66,7 @@ test("valid input yields only the allowed keys, typed", async () => {
 test("blank optional fields become null; unchecked box is false", async () => {
 	const r = await parseProfile(formOf({}));
 	assert.deepEqual(r.ok && r.data, {
+		preferred_name: null,
 		team: null,
 		designation: null,
 		birthday_month: null,
@@ -131,6 +134,8 @@ test("bio, team and designation lengths", async () => {
 	assert.ok((await errorsOf({ team: "x".repeat(61) })).team);
 	assert.equal((await parseProfile(formOf({ designation: "x".repeat(60) }))).ok, true);
 	assert.ok((await errorsOf({ designation: "x".repeat(61) })).designation);
+	assert.equal((await parseProfile(formOf({ preferred_name: "x".repeat(40) }))).ok, true);
+	assert.ok((await errorsOf({ preferred_name: "x".repeat(41) })).preferred_name);
 });
 
 test("photo: type comes from the bytes, size is capped", async () => {
@@ -172,6 +177,18 @@ test("people helpers: only active === false is inactive; teams grouped, no team 
 		groups.map(([team, list]) => [team, list.map((x) => x.id)]),
 		[["Design", ["c"]], ["Sales", ["b", "d"]], [null, ["a", "e"]]],
 	);
+	const ordered = groupByTeam([p("a", "Sales"), p("b", "Office"), p("c", "Engineering"), p("d", "Leadership"), p("e", "Admin"), p("f")]);
+	assert.deepEqual(
+		ordered.map(([team]) => team),
+		["Leadership", "Admin", "Engineering", "Office", "Sales", null],
+	);
 	assert.equal(initials("Rina Akter"), "RA");
 	assert.equal(initials("Madonna"), "MA");
+	assert.equal(displayName({ name: "Md. Shariful Islam", preferred_name: "Shariful" }), "Shariful");
+	assert.equal(displayName({ name: "Md. Shariful Islam", preferred_name: " " }), "Md. Shariful Islam");
+	assert.equal(displayName({ name: "Md. Shariful Islam" }), "Md. Shariful Islam");
+	const person = { name: "Md. Saif Uddin Akib", preferred_name: "Saif Akib", designation: "Senior Software Engineer", team: "Engineering" };
+	for (const q of ["uddin", "SAIF AKIB", "senior", "engineering"]) assert.equal(matchesPerson(person, q), true, q);
+	assert.equal(matchesPerson(person, "marketing"), false);
+	assert.equal(matchesPerson({ ...person, preferred_name: null, designation: null, team: null }, "senior"), false);
 });

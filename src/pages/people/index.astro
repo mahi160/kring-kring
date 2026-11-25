@@ -4,12 +4,14 @@ import { Image } from "emdash/ui";
 import Base from "../../layouts/Base.astro";
 import { currentStaffId } from "../../staff/index.ts";
 import { MONTHS } from "../../utils/celebrations";
-import { groupByTeam, initials, isActive } from "../../utils/people";
+import { displayName, groupByTeam, initials, isActive, matchesPerson } from "../../utils/people";
 
 const { entries, error } = await getEmDashCollection("people", { limit: 1000 });
 if (error) console.error("Failed to load people:", error);
-const people = entries.filter(isActive).sort((a, b) => a.data.name.localeCompare(b.data.name));
-const groups = groupByTeam(people);
+const people = entries.filter(isActive).sort((a, b) => displayName(a.data).localeCompare(displayName(b.data)));
+const q = (Astro.url.searchParams.get("q") ?? "").trim().slice(0, 100);
+// Search narrows the roster only; the birthday calendar always shows everyone.
+const groups = groupByTeam(q ? people.filter((p) => matchesPerson(p.data, q)) : people);
 const staffId = currentStaffId(Astro.cookies);
 const saved = Astro.url.searchParams.get("saved") === "1";
 
@@ -45,8 +47,22 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 	{people.length === 0 && <p>Nobody is listed yet.</p>}
 	{
 		people.length > 0 && (
+			<form class="search" role="search" method="get">
+				<label class="visually-hidden" for="q">Search people</label>
+				<input id="q" type="search" name="q" value={q} placeholder="Search by name, title or team" />
+				<button type="submit">Search</button>
+			</form>
+		)
+	}
+	{
+		people.length > 0 && (
 			<div class="board">
 				<div class="roster">
+					{groups.length === 0 && (
+						<p class="no-match">
+							Nobody found for “{q}”. <a href="/people">Show everyone</a>
+						</p>
+					)}
 					{groups.map(([team, members], g) => (
 						<section class="card sheet" aria-labelledby={`team-${g}`}>
 							<h2 class="card-title" id={`team-${g}`}>
@@ -67,13 +83,13 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 												<Image image={p.data.photo} alt="" width={56} height={56} class="avatar" />
 											) : (
 												<span class="avatar" aria-hidden="true" style={`--tint: var(${avatarTint[i % 4]})`}>
-													{initials(p.data.name)}
+													{initials(displayName(p.data))}
 												</span>
 											)}
 											<div class="who">
 												<h3 class="name">
 													<a class="profile-link" href={`/people/${p.id}`}>
-														{p.data.name}
+														{displayName(p.data)}
 													</a>
 													{mine && <span class="you">You</span>}
 													{mine && (
@@ -134,7 +150,7 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 									<ul role="list">
 										{m.people.map((p) => (
 											<li>
-												<span class="day">{p.data.birthday_day}</span> {p.data.name}
+												<span class="day">{p.data.birthday_day}</span> {displayName(p.data)}
 											</li>
 										))}
 									</ul>
@@ -150,6 +166,14 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 
 <style>
 	.page-intro a {
+		color: var(--accent-ink);
+		font-weight: 700;
+	}
+	.no-match {
+		margin: 0;
+		color: var(--slate);
+	}
+	.no-match a {
 		color: var(--accent-ink);
 		font-weight: 700;
 	}

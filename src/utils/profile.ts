@@ -1,6 +1,7 @@
 import { MONTHS } from "./celebrations.ts";
 
 export const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+export const MAX_PREFERRED_NAME = 40;
 export const MAX_TEAM = 60;
 export const MAX_DESIGNATION = 60;
 export const MAX_PHONE = 20;
@@ -18,6 +19,7 @@ const SLACK = /^[\p{L}\p{N}._-]+$/u;
 const GITHUB = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
 
 export type ProfileField =
+	| "preferred_name"
 	| "team"
 	| "designation"
 	| "birthday_month"
@@ -35,6 +37,7 @@ export type ProfileField =
 
 /** What the form shows again after an error: the raw submitted text. */
 export interface ProfileValues {
+	preferred_name: string;
 	team: string;
 	designation: string;
 	birthday_month: string;
@@ -53,6 +56,7 @@ export interface ProfileValues {
 }
 
 export interface ProfileData {
+	preferred_name: string | null;
 	team: string | null;
 	designation: string | null;
 	birthday_month: (typeof MONTHS)[number] | null;
@@ -101,6 +105,7 @@ const text = (form: FormData, key: string) => {
 /** Validates the self-service profile form. Only the keys in ProfileData can come out. */
 export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	const values: ProfileValues = {
+		preferred_name: text(form, "preferred_name").replace(/\s+/g, " "),
 		team: text(form, "team"),
 		designation: text(form, "designation"),
 		birthday_month: text(form, "birthday_month"),
@@ -123,6 +128,8 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	};
 	const errors: Partial<Record<ProfileField, string>> = {};
 
+	if (values.preferred_name.length > MAX_PREFERRED_NAME)
+		errors.preferred_name = `Preferred name can be at most ${MAX_PREFERRED_NAME} characters.`;
 	if (values.team.length > MAX_TEAM) errors.team = `Team can be at most ${MAX_TEAM} characters.`;
 	if (values.designation.length > MAX_DESIGNATION)
 		errors.designation = `Designation can be at most ${MAX_DESIGNATION} characters.`;
@@ -192,6 +199,7 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	return {
 		ok: true,
 		data: {
+			preferred_name: values.preferred_name || null,
 			team: values.team || null,
 			designation: values.designation || null,
 			birthday_month: monthIndex >= 0 ? MONTHS[monthIndex] : null,

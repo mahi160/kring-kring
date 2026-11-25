@@ -3,6 +3,7 @@ import { Image } from "emdash/ui";
 import type { People as Person } from "../../emdash-env";
 import type { Celebration } from "../utils/celebrations";
 import { formatShortDate, relativeDay } from "../utils/dates";
+import { displayName } from "../utils/people";
 
 interface Props {
 	birthdays: Celebration<{ data: Person }>[];
@@ -25,11 +26,11 @@ const items = [
 		...c,
 		what: "Birthday",
 		kind: "birthday" as const,
-		headline: `Happy birthday, ${c.person.data.name}!`,
+		headline: `Happy birthday, ${displayName(c.person.data)}!`,
 	})),
 	...anniversaries.map((c) => ({
 		...c,
-		headline: `Happy ${c.years}-year work anniversary, ${c.person.data.name}!`,
+		headline: `Happy ${c.years}-year work anniversary, ${displayName(c.person.data)}!`,
 		what: `${c.years} ${c.years === 1 ? "year" : "years"} with us`,
 		kind: "anniversary" as const,
 	})),
@@ -55,11 +56,11 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 						<Image image={c.person.data.photo} alt="" width={48} height={48} class="avatar" />
 					) : (
 						<span class="avatar" aria-hidden="true">
-							{initials(c.person.data.name)}
+							{initials(displayName(c.person.data))}
 						</span>
 					)}
 					<button type="button" class="who" data-card-open={`card-${i}`}>
-						<span class="name">{c.person.data.name}</span>
+						<span class="name">{displayName(c.person.data)}</span>
 						<span class="what">
 							{c.what} · <time datetime={c.on.toISOString().slice(0, 10)}>{when(c)}</time>
 						</span>
@@ -85,7 +86,7 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 						<Image image={c.person.data.photo} alt="" width={160} height={160} class="portrait" />
 					) : (
 						<span class="portrait" aria-hidden="true">
-							{initials(c.person.data.name)}
+							{initials(displayName(c.person.data))}
 						</span>
 					)}
 					<h3 id={`card-${i}-title`}>{c.headline}</h3>

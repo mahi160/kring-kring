@@ -3,7 +3,7 @@ import { decodeSlug, getEmDashEntry } from "emdash";
 import { Image } from "emdash/ui";
 import Base from "../../layouts/Base.astro";
 import { currentStaffId } from "../../staff/index.ts";
-import { initials, isActive } from "../../utils/people";
+import { displayName, initials, isActive } from "../../utils/people";
 
 const slug = decodeSlug(Astro.params.slug);
 if (!slug) return Astro.rewrite("/404");
@@ -37,7 +37,7 @@ const hasEmergency = signedIn && (d.blood_group || d.emergency_phone);
 const signIn = `/sign-in?next=${encodeURIComponent(`/people/${slug}`)}`;
 ---
 
-<Base title={d.name} wide>
+<Base title={displayName(d)} wide>
 	<p class="back"><a href="/people">← All people</a></p>
 	<div class="profile">
 		<section class="card about" aria-labelledby="name">
@@ -46,11 +46,12 @@ const signIn = `/sign-in?next=${encodeURIComponent(`/people/${slug}`)}`;
 					<Image image={d.photo} alt="" width={144} height={144} class="avatar" />
 				) : (
 					<span class="avatar" aria-hidden="true">
-						{initials(d.name)}
+						{initials(displayName(d))}
 					</span>
 				)
 			}
-			<h1 id="name" class="name">{d.name}</h1>
+			<h1 id="name" class="name">{displayName(d)}</h1>
+			{displayName(d) !== d.name && <p class="full-name">{d.name}</p>}
 			{d.designation && <p class="designation">{d.designation}</p>}
 			{d.team && <p class="team">{d.team}</p>}
 			{d.bio && <p class="bio">{d.bio}</p>}
@@ -180,6 +181,10 @@ const signIn = `/sign-in?next=${encodeURIComponent(`/people/${slug}`)}`;
 		font-weight: 800;
 		line-height: 1;
 		overflow-wrap: anywhere;
+	}
+	.full-name {
+		margin: 0.25rem 0 0;
+		color: var(--slate);
 	}
 	.designation {
 		margin: 0.25rem 0 0;

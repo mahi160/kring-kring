@@ -34,7 +34,7 @@ import {
 } from "../utils/dates";
 import { eventEnd, upcomingEvents } from "../utils/events";
 import { getNews } from "../utils/news";
-import { isActive } from "../utils/people";
+import { displayName, isActive } from "../utils/people";
 import { teaStats } from "../utils/tea";
 import { resolveStarterSiteIdentity } from "../utils/site-identity";
 import { aqiMood, getDhakaAirQuality, getDhakaWeather } from "../utils/weather";
@@ -69,7 +69,7 @@ const events = upcomingEvents(eventsResult.entries, now, 4);
 const activePeople = peopleResult.entries.filter(isActive);
 const birthdays = upcomingBirthdays(activePeople, now);
 const anniversaries = upcomingAnniversaries(activePeople, now);
-const birthdayToday = birthdays.filter((b) => b.inDays === 0).map((b) => b.person.data.name);
+const birthdayToday = birthdays.filter((b) => b.inDays === 0).map((b) => displayName(b.person.data));
 const hasCelebrations = birthdays.length + anniversaries.length > 0;
 const staffId = currentStaffId(Astro.cookies);
 const comics = comicStore();

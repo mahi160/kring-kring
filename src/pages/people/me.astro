@@ -5,7 +5,7 @@ import { Image } from "emdash/ui";
 import Base from "../../layouts/Base.astro";
 import { currentStaffId, isCrossSite, signOutStaff } from "../../staff/index.ts";
 import { MONTHS } from "../../utils/celebrations";
-import { isActive } from "../../utils/people";
+import { displayName, isActive } from "../../utils/people";
 import {
 	BLOOD_GROUPS,
 	MAX_BIO,
@@ -13,6 +13,7 @@ import {
 	MAX_EMAIL,
 	MAX_EMERGENCY_NAME,
 	MAX_PHONE,
+	MAX_PREFERRED_NAME,
 	MAX_RELATION,
 	MAX_SLACK,
 	MAX_PHOTO_BYTES,
@@ -38,6 +39,7 @@ if (!person || !isActive(person)) {
 }
 
 let values: ProfileValues = {
+	preferred_name: person.data.preferred_name ?? "",
 	team: person.data.team ?? "",
 	designation: person.data.designation ?? "",
 	birthday_month: person.data.birthday_month ?? "",
@@ -70,11 +72,11 @@ if (post) {
 			if (result.photo) {
 				const upload = await runtime.handleMediaUpload({
 					...result.photo,
-					alt: person.data.name,
+					alt: displayName(person.data),
 					maxUploadSize: MAX_PHOTO_BYTES,
 				});
 				if (!upload.success) return { error: "photo" as const, message: upload.error.message };
-				data.photo = { provider: "local", id: upload.data.item.id, alt: person.data.name };
+				data.photo = { provider: "local", id: upload.data.item.id, alt: displayName(person.data) };
 			} else if (result.removePhoto) {
 				data.photo = null;
 			}
@@ -94,6 +96,7 @@ if (post) {
 }
 
 const fields: [ProfileField, string][] = [
+	["preferred_name", "Preferred name"],
 	["photo", "Photo"],
 	["team", "Team"],
 	["designation", "Designation"],
@@ -147,6 +150,20 @@ const joinedOn = person.data.joined_on
 			</dl>
 			<p class="hint" style="margin-block: 0.5rem 1.5rem">Your name and joining date are set by the office admin.</p>
 			<form method="post" enctype="multipart/form-data" novalidate>
+				<label for="preferred_name">Preferred name</label>
+				<input
+					id="preferred_name"
+					name="preferred_name"
+					type="text"
+					maxlength={MAX_PREFERRED_NAME}
+					value={values.preferred_name}
+					autocomplete="nickname"
+					aria-invalid={errors.preferred_name ? "true" : undefined}
+					aria-describedby={describe("preferred_name", "preferred_name-hint")}
+				/>
+				<p class="field-hint" id="preferred_name-hint">What the hub calls you, e.g. Shariful. Leave empty to use your full name.</p>
+				{errors.preferred_name && <p class="field-error" id="preferred_name-error">{errors.preferred_name}</p>}
+
 				<label for="photo">Photo</label>
 				{person.data.photo && <Image image={person.data.photo} alt="Your current photo" width={96} height={96} class="current-photo" />}
 				<input

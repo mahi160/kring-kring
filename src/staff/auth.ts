@@ -13,6 +13,7 @@ export type VerifyResult =
 
 export type SignInResult = { ok: true; token: string } | Exclude<VerifyResult, { ok: true }>;
 export type ChangePinResult = VerifyResult | { ok: false; reason: "invalid-new-pin" };
+export type ClaimPinResult = { ok: true; token: string } | { ok: false; reason: "invalid-new-pin" | "taken" };
 
 export const isPinFormat = (pin: string) => PIN.test(pin);
 
@@ -74,6 +75,12 @@ export class StaffAuth {
 		return pin;
 	}
 
+	/** Removes the PIN and signs the person out everywhere, so they choose a new one at next sign-in. */
+	clearPin(personId: string): void {
+		this.db.prepare("DELETE FROM staff_pins WHERE person_id = ?").run(personId);
+		this.db.prepare("DELETE FROM staff_sessions WHERE person_id = ?").run(personId);
+	}
+
 	/** When the person's current PIN was set, or null if they have none. */
 	pinSetAt(personId: string): Date | null {
 		const row = this.db.prepare("SELECT set_at FROM staff_pins WHERE person_id = ?").get(personId);
@@ -114,11 +121,28 @@ export class StaffAuth {
 	async signIn(personId: string, pin: string): Promise<SignInResult> {
 		const result = await this.verify(personId, pin);
 		if (!result.ok) return result;
+		return { ok: true, token: this.startSession(personId) };
+	}
+
+	/**
+	 * First sign-in: someone with no PIN yet sets their own and is signed in.
+	 * Only succeeds while no PIN exists, so it can't overwrite one; a wrong claim is fixed by an admin reset.
+	 */
+	async claimPin(personId: string, pin: string): Promise<ClaimPinResult> {
+		if (!isPinFormat(pin)) return { ok: false, reason: "invalid-new-pin" };
+		const inserted = this.db
+			.prepare("INSERT INTO staff_pins (person_id, pin_hash, set_at) VALUES (?, ?, ?) ON CONFLICT (person_id) DO NOTHING")
+			.run(personId, await encodePin(pin), this.now());
+		if (inserted.changes === 0) return { ok: false, reason: "taken" };
+		return { ok: true, token: this.startSession(personId) };
+	}
+
+	private startSession(personId: string): string {
 		const token = randomBytes(32).toString("base64url");
 		this.db
 			.prepare("INSERT INTO staff_sessions (token_hash, person_id, created_at) VALUES (?, ?, ?)")
 			.run(tokenHash(token), personId, this.now());
-		return { ok: true, token };
+		return token;
 	}
 
 	personForToken(token: string): string | null {

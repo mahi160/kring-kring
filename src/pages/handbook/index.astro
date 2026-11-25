@@ -51,30 +51,6 @@ const groups = groupByTopic(pages);
 </Base>
 
 <style>
-	.search {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-block-end: 2rem;
-	}
-	.search input {
-		flex: 1 1 14rem;
-		padding: 0.5rem 0.75rem;
-		border: 2px solid var(--ink);
-		border-radius: var(--radius);
-		background: var(--sheet);
-		font: inherit;
-	}
-	.search button {
-		padding: 0.5rem 1rem;
-		border: 2px solid var(--ink);
-		border-radius: var(--radius);
-		background: var(--highlight);
-		color: var(--on-highlight);
-		font: inherit;
-		font-weight: 700;
-		cursor: pointer;
-	}
 	.topic {
 		margin-block-end: 2rem;
 	}
@@ -99,10 +75,5 @@ const groups = groupByTopic(pages);
 	}
 	.empty a {
 		margin-inline-start: 0.5rem;
-	}
-	@media print {
-		.search {
-			display: none;
-		}
 	}
 </style>

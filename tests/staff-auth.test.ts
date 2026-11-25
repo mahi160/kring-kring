@@ -39,6 +39,38 @@ test("no PIN yet cannot sign in", async () => {
 	assert.deepEqual(await auth.signIn("rina", "1234"), { ok: false, reason: "no-pin" });
 });
 
+test("first sign-in: someone with no PIN claims one and is signed in", async () => {
+	const { auth } = setup();
+	assert.deepEqual(await auth.claimPin("rina", "12a4"), { ok: false, reason: "invalid-new-pin" });
+	assert.equal(auth.pinSetAt("rina"), null);
+	const claimed = await auth.claimPin("rina", "2468");
+	assert.ok(claimed.ok);
+	assert.equal(auth.personForToken(claimed.token), "rina");
+	assert.ok((await auth.signIn("rina", "2468")).ok);
+});
+
+test("claiming can't overwrite an existing PIN, even in parallel", async () => {
+	const { auth } = setup();
+	const results = await Promise.all([auth.claimPin("rina", "1111"), auth.claimPin("rina", "2222")]);
+	assert.equal(results.filter((r) => r.ok).length, 1);
+	assert.deepEqual(await auth.claimPin("rina", "3333"), { ok: false, reason: "taken" });
+	const issued = await auth.issuePin("tanvir");
+	assert.deepEqual(await auth.claimPin("tanvir", issued === "4444" ? "5555" : "4444"), { ok: false, reason: "taken" });
+	assert.ok((await auth.signIn("tanvir", issued)).ok);
+});
+
+test("clearing a PIN ends sessions and lets the person claim a new one", async () => {
+	const { auth } = setup();
+	const pin = await auth.issuePin("rina");
+	const session = await auth.signIn("rina", pin);
+	assert.ok(session.ok);
+	auth.clearPin("rina");
+	assert.equal(auth.personForToken(session.token), null);
+	assert.equal(auth.pinSetAt("rina"), null);
+	assert.deepEqual(await auth.signIn("rina", pin), { ok: false, reason: "no-pin" });
+	assert.ok((await auth.claimPin("rina", "1357")).ok);
+});
+
 test("third wrong PIN locks for 15 minutes, even against the correct PIN", async () => {
 	const { auth, advance } = setup();
 	const pin = await auth.issuePin("rina");

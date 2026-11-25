@@ -13,7 +13,7 @@ import {
 	MAX_UPLOADS_PER_DAY,
 	parseGalleryUpload,
 } from "../../utils/gallery";
-import { isActive } from "../../utils/people";
+import { displayName, isActive } from "../../utils/people";
 import "../../styles/forms.css";
 
 const post = Astro.request.method === "POST";
@@ -49,14 +49,14 @@ if (post && staff) {
 		} else {
 			// Trusted runtime: staff aren't EmDash users, so there's no actor and revisions record no author.
 			const saved = await withEmDashRuntime(async (runtime) => {
-				const alt = result.caption || `Photo shared by ${staff.data.name}`;
+				const alt = result.caption || `Photo shared by ${displayName(staff.data)}`;
 				const upload = await runtime.handleMediaUpload({ ...result.photo, alt, maxUploadSize: MAX_GALLERY_BYTES });
 				if (!upload.success) return upload.error.message;
 				const create = await runtime.handleContentCreate("gallery", {
 					data: {
 						photo: { provider: "local", id: upload.data.item.id, alt },
 						caption: result.caption || null,
-						uploaded_by: staff.data.name,
+						uploaded_by: displayName(staff.data),
 					},
 				});
 				if (!create.success) return create.error.message;

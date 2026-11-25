@@ -41,7 +41,7 @@ caddy validate --config Caddyfile --adapter caddyfile >/dev/null
 if [[ -f $DATA/hub.db ]]; then
 	runuser -u hub -- node_modules/.bin/emdash seed seed.json --database "$DATA/hub.db" \
 		--no-content --on-conflict skip --uploads-dir "$DATA/uploads"
-	# Skip mode never adds fields to an existing collection, so apply people (phone, bio, active)
+	# Skip mode never adds fields to an existing collection, so apply people (phone, bio, active, preferred_name)
 	# on its own: update mode would also overwrite site settings if given the whole seed.
 	node -e 'const s=JSON.parse(require("fs").readFileSync("seed.json","utf8"));
 		require("fs").writeFileSync("/tmp/people-seed.json",JSON.stringify({version:s.version,collections:s.collections.filter(c=>c.slug==="people")}))'
