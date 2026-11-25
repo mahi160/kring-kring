@@ -3,6 +3,7 @@ import { getEmDashCollection } from "emdash";
 import { Image } from "emdash/ui";
 import Base from "../../layouts/Base.astro";
 import { currentStaffId } from "../../staff/index.ts";
+import { MONTHS } from "../../utils/celebrations";
 import { groupByTeam, initials, isActive } from "../../utils/people";
 
 const { entries, error } = await getEmDashCollection("people", { limit: 1000 });
@@ -17,78 +18,148 @@ const joined = (iso?: string) => {
 	const d = iso ? new Date(iso) : null;
 	return d && !Number.isNaN(d.getTime()) ? joinedFormat.format(d) : null;
 };
+const shownBirthday = (p: (typeof people)[number]) => !p.data.hide_birthday && p.data.birthday_month && p.data.birthday_day;
 const birthday = (p: (typeof people)[number]) =>
-	p.data.hide_birthday || !p.data.birthday_month || !p.data.birthday_day
-		? null
-		: `${p.data.birthday_day} ${p.data.birthday_month}`;
+	shownBirthday(p) ? `${p.data.birthday_day} ${p.data.birthday_month!.slice(0, 3)}` : null;
+
+// Birthday calendar: who celebrates in each month, by day. This month is marked.
+const thisMonth = Number(new Intl.DateTimeFormat("en-GB", { month: "numeric", timeZone: "Asia/Dhaka" }).format(new Date())) - 1;
+const months = MONTHS.map((month, i) => ({
+	month,
+	current: i === thisMonth,
+	people: people
+		.filter((p) => shownBirthday(p) && p.data.birthday_month === month)
+		.sort((a, b) => (a.data.birthday_day ?? 0) - (b.data.birthday_day ?? 0)),
+}));
+const withBirthday = months.reduce((n, m) => n + m.people.length, 0);
+const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"];
 ---
 
 <Base title="People" wide>
 	<h1 class="page-title">People</h1>
-	<p class="page-intro">Everyone at the office. Signed in? Keep your own card up to date.</p>
+	<p class="page-intro">
+		{people.length} {people.length === 1 ? "person" : "people"} at the office.{" "}
+		{staffId ? <a href="/people/me">Edit your own row</a> : <>Signed in? Keep your own row up to date.</>}
+	</p>
 	{saved && <p class="saved" role="status">Profile saved. Looking good!</p>}
 	{people.length === 0 && <p>Nobody is listed yet.</p>}
 	{
-		groups.map(([team, members], i) => (
-			<section aria-labelledby={`team-${i}`}>
-				<h2 class="team" id={`team-${i}`}>
-					{team ?? "No team"}
-				</h2>
-				<ul class="grid" role="list">
-					{members.map((p) => {
-						const mine = p.data.id === staffId;
-						const bday = birthday(p);
-						const since = joined(p.data.joined_on);
-						return (
-							<li class="card person" id={`p-${p.id}`}>
-								{p.data.photo ? (
-									<Image image={p.data.photo} alt="" width={96} height={96} class="avatar" />
-								) : (
-									<span class="avatar" aria-hidden="true">
-										{initials(p.data.name)}
-									</span>
-								)}
-								<h3 class="name">{p.data.name}</h3>
-								{p.data.designation && <p class="designation">{p.data.designation}</p>}
-								{p.data.team && <p class="team-name">{p.data.team}</p>}
-								{p.data.bio && <p class="bio">{p.data.bio}</p>}
-								<dl class="facts">
-									{p.data.phone && (
-										<>
-											<dt>Phone</dt>
-											<dd>
-												<a href={`tel:${p.data.phone.replaceAll(" ", "")}`}>{p.data.phone}</a>
-											</dd>
-										</>
-									)}
-									{bday && (
-										<>
-											<dt>Birthday</dt>
-											<dd>{bday}</dd>
-										</>
-									)}
-									{since && (
-										<>
-											<dt>Joined</dt>
-											<dd>{since}</dd>
-										</>
-									)}
-								</dl>
-								{mine && (
-									<a class="edit" href="/people/me">
-										Edit my profile
-									</a>
+		people.length > 0 && (
+			<div class="board">
+				<div class="roster">
+					{groups.map(([team, members], g) => (
+						<section class="card sheet" aria-labelledby={`team-${g}`}>
+							<h2 class="card-title" id={`team-${g}`}>
+								{team ?? "No team"} <span class="count">{members.length}</span>
+							</h2>
+							<div class="columns" aria-hidden="true">
+								<span>Birthday</span>
+								<span>Joined</span>
+								<span>Phone</span>
+							</div>
+							<ul class="rows" role="list">
+								{members.map((p, i) => {
+									const mine = p.data.id === staffId;
+									const bday = birthday(p);
+									const since = joined(p.data.joined_on);
+									return (
+										<li class:list={["row", { mine }]} id={`p-${p.id}`}>
+											{p.data.photo ? (
+												<Image image={p.data.photo} alt="" width={56} height={56} class="avatar" />
+											) : (
+												<span class="avatar" aria-hidden="true" style={`--tint: var(${avatarTint[i % 4]})`}>
+													{initials(p.data.name)}
+												</span>
+											)}
+											<div class="who">
+												<h3 class="name">
+													{p.data.name}
+													{mine && <span class="you">You</span>}
+													{mine && (
+														<a class="edit" href="/people/me">
+															Edit
+														</a>
+													)}
+												</h3>
+												{p.data.designation && <p class="designation">{p.data.designation}</p>}
+												{p.data.bio && <p class="bio">{p.data.bio}</p>}
+											</div>
+											<dl class="facts">
+												{bday && (
+													<div class="f-birthday">
+														<dt>Birthday</dt>
+														<dd>{bday}</dd>
+													</div>
+												)}
+												{since && (
+													<div class="f-joined">
+														<dt>Joined</dt>
+														<dd>{since}</dd>
+													</div>
+												)}
+												{p.data.phone && (
+													<div class="f-phone">
+														<dt>Phone</dt>
+														<dd>
+															<a href={`tel:${p.data.phone.replaceAll(" ", "")}`}>{p.data.phone}</a>
+														</dd>
+													</div>
+												)}
+											</dl>
+										</li>
+									);
+								})}
+							</ul>
+						</section>
+					))}
+				</div>
+
+				<section class="card calendar" aria-labelledby="calendar-title">
+					<h2 class="card-title" id="calendar-title">
+						Birthday calendar
+					</h2>
+					{withBirthday === 0 ? (
+						<p class="empty">
+							No birthdays added yet.{" "}
+							{staffId ? <a href="/people/me">Add yours</a> : <a href="/sign-in?next=/people/me">Sign in and add yours</a>}{" "}
+							and it shows up here and on the home page.
+						</p>
+					) : (
+						<p class="empty">
+							{withBirthday} of {people.length} birthdays added.{" "}
+							{staffId ? <a href="/people/me">Add or hide yours</a> : <a href="/sign-in?next=/people/me">Sign in to add yours</a>}.
+						</p>
+					)}
+					<ol class="months" role="list">
+						{months.map((m) => (
+							<li class:list={["month", { current: m.current, quiet: m.people.length === 0 }]}>
+								<h3 class="month-name">
+									{m.month.slice(0, 3)}
+									{m.current && <span class="visually-hidden"> (this month)</span>}
+								</h3>
+								{m.people.length > 0 && (
+									<ul role="list">
+										{m.people.map((p) => (
+											<li>
+												<span class="day">{p.data.birthday_day}</span> {p.data.name}
+											</li>
+										))}
+									</ul>
 								)}
 							</li>
-						);
-					})}
-				</ul>
-			</section>
-		))
+						))}
+					</ol>
+				</section>
+			</div>
+		)
 	}
 </Base>
 
 <style>
+	.page-intro a {
+		color: var(--accent-ink);
+		font-weight: 700;
+	}
 	.saved {
 		margin: 0 0 1.5rem;
 		padding: 0.6rem 0.85rem;
@@ -96,106 +167,207 @@ const birthday = (p: (typeof people)[number]) =>
 		background: var(--note-mint);
 		font-weight: 700;
 	}
-	.team {
-		margin: 2.5rem 0 1.5rem;
-		font-family: var(--font-display);
-		font-size: 1.375rem;
-		font-weight: 800;
-		letter-spacing: 0.01em;
-		text-transform: uppercase;
-		line-height: 1.2;
-	}
-	.grid {
+	.board {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-		gap: 1.75rem 1.25rem;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2rem;
+		align-items: start;
+		margin-block-end: 3rem;
+	}
+	@media (min-width: 62rem) {
+		.board {
+			grid-template-columns: minmax(0, 1fr) 18rem;
+		}
+	}
+	.roster {
+		display: grid;
+		gap: 2rem;
+	}
+	.sheet {
+		padding-block-end: 0.5rem;
+	}
+	.count {
+		margin-inline-start: 0.35rem;
+		padding: 0.05rem 0.5rem;
+		border-radius: 999px;
+		background: var(--note-yellow);
+		color: var(--ink);
+		font-size: 1rem;
+		vertical-align: 0.15em;
+	}
+	.rows {
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
-	.person {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.5rem;
+	.row {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 0.25rem 1rem;
+		align-items: center;
+		padding: 0.85rem 0.5rem;
+		border-block-start: 1px dashed var(--rule);
 		scroll-margin-block-start: 2rem;
 	}
-	.person:nth-child(3n + 1) {
-		rotate: -0.6deg;
+	.row:first-child {
+		border-block-start: 0;
 	}
-	.person:nth-child(3n) {
-		rotate: 0.5deg;
-	}
-	.person:target {
+	.row:target {
 		outline: 3px solid var(--highlight);
-		outline-offset: 4px;
+		outline-offset: -3px;
+		border-radius: var(--radius);
+	}
+	.row.mine {
+		background: color-mix(in srgb, var(--note-yellow) 55%, transparent);
+		border-radius: var(--radius);
 	}
 	.avatar {
 		display: grid;
 		place-items: center;
-		flex: none;
-		width: 4.5rem;
+		grid-row: span 2;
+		width: 3.5rem;
 		aspect-ratio: 1;
 		border-radius: 50%;
 		object-fit: cover;
-		background: var(--note-sky);
+		background: var(--tint, var(--note-sky));
+		color: var(--ink);
 		font-family: var(--font-display);
-		font-size: 1.75rem;
+		font-size: 1.375rem;
 		font-weight: 800;
 	}
-	.person:nth-child(3n + 2) .avatar:not(img) {
-		background: var(--note-pink);
-	}
-	.person:nth-child(3n) .avatar:not(img) {
-		background: var(--note-yellow);
+	.who {
+		min-width: 0;
 	}
 	.name {
-		margin: 0.25rem 0 0;
-		font-size: 1.25rem;
-		line-height: 1.2;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.25rem 0.5rem;
+		margin: 0;
+		font-size: 1.125rem;
+		line-height: 1.25;
 		overflow-wrap: anywhere;
 	}
-	.designation {
-		margin: 0;
-		font-size: 1rem;
-		font-weight: 700;
-		line-height: 1.3;
-		overflow-wrap: anywhere;
-	}
-	.team-name {
-		margin: 0;
-		color: var(--slate);
-		font-size: 0.9375rem;
-		font-weight: 700;
-	}
-	.bio {
-		margin: 0;
-		font-size: 1rem;
-		line-height: 1.5;
-		overflow-wrap: anywhere;
-	}
-	.facts {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: 0.15rem 0.75rem;
-		margin: 0.25rem 0 0;
-		font-size: 0.9375rem;
-		line-height: 1.4;
-	}
-	.facts dt {
-		color: var(--slate);
-	}
-	.facts dd {
-		margin: 0;
-		overflow-wrap: anywhere;
-	}
-	.edit {
-		margin-block-start: auto;
-		padding: 0.45rem 0.9rem;
+	.you {
+		padding: 0.05rem 0.45rem;
 		border-radius: 999px;
 		background: var(--accent-ink);
 		color: var(--on-accent);
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.designation {
+		margin: 0.1rem 0 0;
+		color: var(--slate);
 		font-size: 0.9375rem;
+		font-weight: 700;
+		line-height: 1.3;
+	}
+	.bio {
+		display: -webkit-box;
+		margin: 0.3rem 0 0;
+		overflow: hidden;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		font-size: 0.9375rem;
+		line-height: 1.45;
+	}
+	.facts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.35;
+	}
+	.facts:empty {
+		display: none;
+	}
+	.facts dt {
+		color: var(--slate);
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.facts dd {
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+		overflow-wrap: anywhere;
+	}
+	.facts a {
+		color: inherit;
+	}
+	.columns {
+		display: none;
+	}
+	/* Wide: facts line up in fixed columns under one header, like a printed staff list. */
+	@media (min-width: 52rem) {
+		.sheet {
+			--facts: 4.5rem 5.5rem 9.5rem;
+		}
+		.row {
+			grid-template-columns: 3.5rem minmax(0, 1fr) var(--facts);
+		}
+		.avatar {
+			grid-row: auto;
+		}
+		.facts,
+		.facts:empty {
+			display: grid;
+			grid-column: 3 / span 3;
+			grid-template-columns: subgrid;
+		}
+		.facts > div {
+			grid-row: 1;
+		}
+		.f-birthday {
+			grid-column: 1;
+		}
+		.f-joined {
+			grid-column: 2;
+		}
+		.f-phone {
+			grid-column: 3;
+		}
+		.facts dt {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		.columns {
+			display: grid;
+			grid-template-columns: 3.5rem minmax(0, 1fr) var(--facts);
+			column-gap: 1rem;
+			padding: 0 0.5rem 0.4rem;
+			border-block-end: 2px solid var(--ink);
+			color: var(--slate);
+			font-size: 0.75rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+		}
+		.columns span:first-child {
+			grid-column: 3;
+		}
+	}
+	@media (max-width: 51.99rem) {
+		.facts {
+			grid-column: 2;
+		}
+	}
+	.edit {
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-size: 0.8125rem;
 		font-weight: 700;
 		text-decoration: none;
 	}
@@ -205,5 +377,81 @@ const birthday = (p: (typeof people)[number]) =>
 	.edit:focus-visible {
 		outline: 3px solid var(--highlight);
 		outline-offset: 2px;
+	}
+
+	.calendar {
+		background: var(--note-yellow);
+		color: var(--ink);
+		rotate: 0.6deg;
+	}
+	@media (min-width: 62rem) {
+		.calendar {
+			position: sticky;
+			top: 1.5rem;
+		}
+	}
+	.empty {
+		margin: 0 0 1rem;
+		font-size: 0.9375rem;
+		line-height: 1.45;
+	}
+	.empty a {
+		color: inherit;
+		font-weight: 700;
+	}
+	.months {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	@media (min-width: 62rem) {
+		.months {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	.month {
+		padding: 0.45rem 0.6rem;
+		border-radius: calc(var(--radius) * 0.75);
+		background: color-mix(in srgb, var(--sheet) 70%, transparent);
+	}
+	.month.quiet {
+		background: transparent;
+		outline: 1px dashed color-mix(in srgb, var(--ink) 25%, transparent);
+		outline-offset: -1px;
+	}
+	.month.current {
+		background: var(--sheet);
+		outline: 2px solid var(--ink);
+		outline-offset: -2px;
+	}
+	.month-name {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.125rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
+	}
+	.month.quiet .month-name {
+		opacity: 0.55;
+	}
+	.month.current .month-name {
+		opacity: 1;
+	}
+	.month ul {
+		margin: 0.2rem 0 0;
+		padding: 0;
+		list-style: none;
+		font-size: 0.875rem;
+		line-height: 1.35;
+	}
+	.day {
+		display: inline-block;
+		min-width: 1.4rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
 	}
 </style>
