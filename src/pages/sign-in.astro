@@ -20,7 +20,10 @@ const people = entries
 let error: string | null = null;
 let chosen = "";
 // First sign-in for someone with no PIN: they choose one and type it twice.
-let settingUp = false;
+// "First time?" links here with ?setup=1 so new staff skip the sign-in attempt.
+// A POST decides from its fields instead, since the form posts back to the same URL.
+let settingUp = Astro.request.method !== "POST" && Astro.url.searchParams.has("setup");
+const nextQuery = `next=${encodeURIComponent(next)}`;
 if (Astro.request.method === "POST" && isCrossSite(Astro.request)) {
 	return new Response("Cross-site request blocked", { status: 403 });
 }
@@ -59,6 +62,8 @@ if (Astro.request.method === "POST") {
 		}
 		if (result.reason === "no-pin") {
 			settingUp = true;
+			error = "You haven't set a PIN yet. Choose one below.";
+			Astro.response.status = 400;
 		} else {
 			error =
 				result.reason === "locked"
@@ -70,12 +75,15 @@ if (Astro.request.method === "POST") {
 }
 ---
 
-<Base title="Sign in">
+<Base title={settingUp ? "Set up your PIN" : "Sign in"}>
 	<div class="form-page">
 		<section class="card" aria-labelledby="title">
-			<h1 id="title" class="card-title">Sign in</h1>
-			<p class="intro">For the daily quiz and reactions. Reading the hub never needs a PIN.</p>
-			{settingUp && <p class="intro" role="status">First time signing in? Choose a 4-digit PIN and type it twice. Remember it: you'll use it every time.</p>}
+			<h1 id="title" class="card-title">{settingUp ? "First time here" : "Sign in"}</h1>
+			<p class="intro">
+				{settingUp
+					? "Pick your name and choose a 4-digit PIN. Remember it: you'll use it every time you sign in."
+					: "For the daily quiz and reactions. Reading the hub never needs a PIN."}
+			</p>
 			{error && <p class="error" role="alert" id="error">{error}</p>}
 			<form method="post">
 				<label for="person">Your name</label>
@@ -112,7 +120,31 @@ if (Astro.request.method === "POST") {
 				)}
 				<button type="submit">{settingUp ? "Set PIN and sign in" : "Sign in"}</button>
 			</form>
-			<p class="hint">First time? Pick your name and the hub will ask you to choose a PIN. Forgot it? Ask the office admin on Slack.</p>
+			<a class="switch" href={settingUp ? `/sign-in?${nextQuery}` : `/sign-in?setup=1&${nextQuery}`}>
+				{settingUp ? "Already have a PIN? Sign in" : "First time? Set up your PIN"}
+			</a>
+			<p class="hint">Forgot your PIN? Ask the office admin on Slack.</p>
 		</section>
 	</div>
 </Base>
+
+<style>
+	.switch {
+		display: block;
+		margin-block-start: 0.75rem;
+		padding: 0.6rem 1rem;
+		border: 2px solid var(--accent-ink);
+		border-radius: 999px;
+		color: var(--accent-ink);
+		font-weight: 700;
+		text-align: center;
+		text-decoration: none;
+	}
+	.switch:hover {
+		background: color-mix(in srgb, var(--accent-ink) 10%, transparent);
+	}
+	.switch:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+</style>
