@@ -1,7 +1,7 @@
 ---
 import { getEmDashEntry, getSiteSettingsWithCacheHint } from "emdash";
 import { currentStaffId, hubSettings } from "../staff/index.ts";
-import { EmDashHead, EmDashBodyStart, EmDashBodyEnd } from "emdash/ui";
+import { EmDashHead, EmDashBodyStart, EmDashBodyEnd, Image } from "emdash/ui";
 import { createPublicPageContext } from "emdash/page";
 import { Font } from "astro:assets";
 import { resolveStarterSiteIdentity } from "../utils/site-identity";
@@ -10,7 +10,7 @@ import DailyBanner from "../components/DailyBanner.astro";
 import { bannerSrc } from "../jobs/banner.ts";
 import { bannerStore } from "../jobs/index.ts";
 import { dhakaDay } from "../comics/store.ts";
-import { displayName } from "../utils/people";
+import { displayName, initials } from "../utils/people";
 import "../styles/theme.css";
 import "../styles/themes.css";
 
@@ -56,7 +56,8 @@ const theme = themeById(themeId);
 const staffId = currentStaffId(Astro.cookies);
 // A person removed from People counts as signed out.
 const staff = staffId ? (await getEmDashEntry("people", staffId)).entry : null;
-const firstName = staff && displayName(staff.data).split(/\s+/)[0];
+const staffName = staff ? displayName(staff.data) : "";
+const firstName = staffName.split(/\s+/)[0];
 
 const pageCtx = createPublicPageContext({
 	Astro,
@@ -112,15 +113,29 @@ const pageCtx = createPublicPageContext({
 			</nav>
 			{
 				staff ? (
-					<div class="who">
-						<span>
-							Hi, <strong>{firstName}</strong>
-						</span>
-						<a href="/pin">Change PIN</a>
-						<form method="post" action="/sign-out">
-							<button type="submit">Not you? Sign out</button>
-						</form>
-					</div>
+					<details class="who">
+						<summary aria-label={`Signed in as ${staffName}. Account menu`}>
+							{staff.data.photo ? (
+								<Image image={staff.data.photo} alt="" width={32} height={32} class="who-avatar" />
+							) : (
+								<span class="who-avatar" aria-hidden="true">{initials(staffName)}</span>
+							)}
+							<span class="who-name">{firstName}</span>
+							<svg class="who-caret" viewBox="0 0 12 12" aria-hidden="true">
+								<path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+							</svg>
+						</summary>
+						<div class="who-menu">
+							<p class="who-head">
+								Signed in as <strong>{staffName}</strong>
+							</p>
+							<a href="/people/me">Edit my profile</a>
+							<a href="/pin">Change PIN</a>
+							<form method="post" action="/sign-out">
+								<button type="submit">Not you? Sign out</button>
+							</form>
+						</div>
+					</details>
 				) : Astro.url.pathname === "/sign-in" ? null : (
 					<a class="sign-in" href={`/sign-in?next=${encodeURIComponent(Astro.url.pathname)}`}>
 						Sign in
@@ -146,6 +161,19 @@ const pageCtx = createPublicPageContext({
 	const root = document.documentElement;
 	const toast = document.querySelector<HTMLElement>(".theme-toast");
 	let hideTimer: number | undefined;
+
+	// Account menu: close on outside click or Escape.
+	const who = document.querySelector<HTMLDetailsElement>("details.who");
+	if (who) {
+		document.addEventListener("click", (e) => {
+			if (who.open && e.target instanceof Node && !who.contains(e.target)) who.open = false;
+		});
+		who.addEventListener("keydown", (e) => {
+			if (e.key !== "Escape" || !who.open) return;
+			who.open = false;
+			who.querySelector("summary")?.focus();
+		});
+	}
 
 	document.addEventListener("keydown", (e) => {
 		if (e.key.toLowerCase() !== "t" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
@@ -188,23 +216,100 @@ const pageCtx = createPublicPageContext({
 		text-decoration-thickness: 3px;
 	}
 	.who {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.25rem 1rem;
+		position: relative;
 		font-size: 0.9375rem;
 	}
-	.who form {
-		display: contents;
-	}
-	.who button {
-		padding: 0;
-		border: 0;
-		background: none;
-		color: var(--slate);
-		font: inherit;
-		text-decoration: underline;
+	.who summary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+		border-radius: 999px;
+		font-weight: 700;
+		list-style: none;
 		cursor: pointer;
+	}
+	.who summary::-webkit-details-marker {
+		display: none;
+	}
+	.who summary:hover .who-caret,
+	.who[open] .who-caret {
+		color: var(--ink);
+	}
+	.who[open] .who-caret {
+		rotate: 180deg;
+	}
+	.who-avatar {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		flex: none;
+		border-radius: 50%;
+		object-fit: cover;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-size: 0.75rem;
+		line-height: 1;
+	}
+	.who-caret {
+		width: 0.75rem;
+		height: 0.75rem;
+		color: var(--slate);
+		transition: rotate 0.15s;
+	}
+	.who-menu {
+		position: absolute;
+		inset-block-start: calc(100% + 0.5rem);
+		inset-inline-end: 0;
+		z-index: 5;
+		display: grid;
+		min-width: 13rem;
+		padding: 0.4rem;
+		border: 1px solid var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		box-shadow: 0 0.6rem 1.2rem -0.6rem rgb(0 0 0 / 0.35);
+	}
+	.who-head {
+		margin: 0 0 0.3rem;
+		padding: 0.4rem 0.6rem 0.6rem;
+		border-block-end: 1px solid var(--rule);
+		color: var(--slate);
+		font-size: 0.8125rem;
+		line-height: 1.3;
+	}
+	.who-head strong {
+		display: block;
+		color: var(--ink);
+		font-size: 0.9375rem;
+	}
+	.who-menu a,
+	.who-menu button {
+		display: block;
+		width: 100%;
+		padding: 0.45rem 0.6rem;
+		border: 0;
+		border-radius: calc(var(--radius) - 0.15rem);
+		background: none;
+		color: var(--ink);
+		font: inherit;
+		line-height: 1.3;
+		text-align: start;
+		text-decoration: none;
+		cursor: pointer;
+	}
+	.who-menu a:hover,
+	.who-menu button:hover {
+		background: var(--paper);
+	}
+	.who-menu form {
+		margin-block-start: 0.3rem;
+		padding-block-start: 0.3rem;
+		border-block-start: 1px solid var(--rule);
+	}
+	.who-menu button {
+		color: var(--accent-ink);
 	}
 	.sign-in {
 		padding: 0.35rem 0.9rem;
@@ -254,8 +359,7 @@ const pageCtx = createPublicPageContext({
 		border-radius: 999px;
 	}
 	.site-header .brand,
-	.site-header .nav,
-	.site-header .who {
+	.site-header .nav {
 		padding: 0.4rem 0.9rem;
 	}
 	main {
