@@ -6,6 +6,7 @@ import Base from "../../layouts/Base.astro";
 import { currentStaffId, isCrossSite, signOutStaff } from "../../staff/index.ts";
 import { MONTHS } from "../../utils/celebrations";
 import { displayName, isActive } from "../../utils/people";
+import { toStoredPhoto } from "../../utils/photo";
 import {
 	BLOOD_GROUPS,
 	MAX_BIO,
@@ -70,8 +71,10 @@ if (post) {
 		const saved = await withEmDashRuntime(async (runtime) => {
 			const data: Record<string, unknown> = { ...result.data };
 			if (result.photo) {
+				const photo = await toStoredPhoto(result.photo);
+				if (!photo) return { error: "photo" as const, message: "the image could not be decoded" };
 				const upload = await runtime.handleMediaUpload({
-					...result.photo,
+					...photo,
 					alt: displayName(person.data),
 					maxUploadSize: MAX_PHOTO_BYTES,
 				});

@@ -5,7 +5,8 @@ import emdash, { local } from "emdash/astro";
 import { sqlite } from "emdash/db";
 import { fileURLToPath } from "node:url";
 
-// Public origin (http://hub.local) comes from EMDASH_SITE_URL at runtime.
+// Public origin (http://hub.local) comes from EMDASH_SITE_URL at runtime. `pnpm build` also sets it,
+// because EmDash bakes the host into image.remotePatterns; without it media is never resized.
 export default defineConfig({
 	output: "server",
 	adapter: node({
