@@ -1,0 +1,74 @@
+---
+import { decodeSlug, getEmDashEntry } from "emdash";
+import { PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import { formatShortDate } from "../../utils/dates";
+import { portableTextToPlain } from "../../jobs/digest.ts";
+import "../../styles/prose.css";
+
+const slug = decodeSlug(Astro.params.slug);
+if (!slug) return Astro.rewrite("/404");
+const { entry: a } = await getEmDashEntry("announcements", slug);
+if (!a) return Astro.rewrite("/404");
+
+const now = new Date();
+const posted = a.data.publishedAt ?? a.data.createdAt;
+const until = a.data.expires_at ? new Date(a.data.expires_at) : null;
+const expired = !!until && until.getTime() <= now.getTime();
+const withYear = (d: Date) => `${formatShortDate(d)}, ${d.getFullYear()}`;
+---
+
+<Base
+	title={a.data.title}
+	description={portableTextToPlain(a.data.body).slice(0, 160)}
+	content={{ collection: "announcements", id: a.data.id, slug }}
+>
+	<p class="crumb"><a href="/announcements">All announcements</a></p>
+	<article>
+		<h1 class="page-title" {...a.edit.title}>{a.data.title}</h1>
+		<p class="meta">
+			{a.data.pinned && !expired && <span class="chip">Pinned</span>}
+			<span>Posted <time datetime={posted.toISOString()}>{withYear(posted)}</time></span>
+			{
+				until && (
+					<span>
+						{expired ? "Ended" : "Until"} <time datetime={until.toISOString()}>{withYear(until)}</time>
+					</span>
+				)
+			}
+		</p>
+		<div class="prose">
+			<PortableText value={a.data.body ?? []} />
+		</div>
+	</article>
+</Base>
+
+<style>
+	.crumb {
+		margin: clamp(2rem, 1rem + 3vw, 3rem) 0 0;
+		font-size: 0.9375rem;
+	}
+	.crumb + article .page-title {
+		margin-block-start: 0.5rem;
+	}
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 1rem;
+		margin: 0 0 2rem;
+		color: var(--slate);
+		font-size: 0.9375rem;
+	}
+	.chip {
+		padding: 0.15rem 0.7rem;
+		border-radius: 999px;
+		background: var(--note-yellow);
+		color: var(--ink);
+		font-weight: 700;
+	}
+	.prose {
+		margin-block-end: 3rem;
+		font-size: 1.0625rem;
+	}
+</style>

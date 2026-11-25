@@ -1,0 +1,127 @@
+---
+import { getEmDashCollection } from "emdash";
+import AnnouncementBody from "../../components/AnnouncementBody.astro";
+import Base from "../../layouts/Base.astro";
+import { currentAnnouncements } from "../../utils/announcements";
+import { formatShortDate } from "../../utils/dates";
+
+const now = new Date();
+const { entries, error } = await getEmDashCollection("announcements", {
+	orderBy: { published_at: "desc" },
+	limit: 200,
+});
+if (error) console.error("Failed to load announcements:", error);
+const current = currentAnnouncements(entries, now);
+const past = entries.filter((a) => !current.includes(a));
+const posted = (a: (typeof entries)[number]) => a.data.publishedAt ?? a.data.createdAt;
+const year = (d: Date) => (d.getFullYear() === now.getFullYear() ? "" : `, ${d.getFullYear()}`);
+const groups = [
+	{ id: "current", title: "On the board", items: current },
+	{ id: "past", title: "Past", items: past },
+].filter((g) => g.items.length > 0);
+---
+
+<Base title="Announcements">
+	<h1 class="page-title">Announcements</h1>
+	<p class="page-intro">Everything posted on the board, newest first.</p>
+
+	{
+		error ? (
+			<p class="empty">Announcements couldn't be loaded. Refresh the page in a minute.</p>
+		) : groups.length === 0 ? (
+			<p class="empty">Nothing has been posted yet.</p>
+		) : (
+			groups.map((g) => (
+				<section aria-labelledby={`${g.id}-title`}>
+					<h2 id={`${g.id}-title`} class="group-title">{g.title}</h2>
+					<ol class="list" role="list">
+						{g.items.map((a) => (
+							<li>
+								<article class:list={["entry", { pinned: g.id === "current" && a.data.pinned }]}>
+									<h3>
+										<a href={`/announcements/${a.id}`}>{a.data.title}</a>
+									</h3>
+									<p class="meta">
+										{g.id === "current" && a.data.pinned && <span class="chip">Pinned</span>}
+										<time datetime={posted(a).toISOString()}>
+											{formatShortDate(posted(a))}
+											{year(posted(a))}
+										</time>
+									</p>
+									<AnnouncementBody body={a.data.body} more={`/announcements/${a.id}`} />
+								</article>
+							</li>
+						))}
+					</ol>
+				</section>
+			))
+		)
+	}
+</Base>
+
+<style>
+	.group-title {
+		margin: 2.5rem 0 1rem;
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: 800;
+		text-transform: uppercase;
+	}
+	.list {
+		display: grid;
+		gap: 1rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.entry {
+		padding: 1.25rem 1.5rem;
+		border-radius: var(--radius);
+		background: var(--sheet);
+		box-shadow: 0 0.4rem 0.8rem -0.5rem rgb(22 32 27 / 0.25);
+	}
+	.entry.pinned {
+		background: var(--note-yellow);
+		color: var(--ink);
+	}
+	h3 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+	h3 a {
+		color: inherit;
+		text-decoration: none;
+	}
+	h3 a:hover {
+		text-decoration: underline;
+	}
+	h3 a:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	.meta {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 0.35rem 0 0;
+		color: var(--slate);
+		font-size: 0.875rem;
+	}
+	.pinned .meta {
+		color: color-mix(in srgb, var(--ink) 75%, transparent);
+	}
+	.chip {
+		padding: 0.05rem 0.55rem;
+		border-radius: 999px;
+		background: var(--ink);
+		color: var(--sheet);
+		font-weight: 700;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.empty {
+		margin: 2rem 0;
+		color: var(--slate);
+	}
+</style>

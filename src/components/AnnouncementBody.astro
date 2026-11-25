@@ -4,15 +4,23 @@ import { PortableText } from "emdash/ui";
 
 interface Props {
 	body: PortableTextBlock[] | undefined;
+	/** Teaser mode: first block only, at most 5 lines, then a link here for the full text. */
+	more?: string;
 }
 
-const { body } = Astro.props;
+const { body, more } = Astro.props;
+const shown = more ? body?.slice(0, 1) : body;
 ---
 
 {
-	body?.length ? (
-		<div class="body">
-			<PortableText value={body} />
+	shown?.length ? (
+		<div class:list={["body", { teaser: !!more }]}>
+			<PortableText value={shown} />
+			{more && (
+				<p class="more">
+					<a href={more}>Read more →</a>
+				</p>
+			)}
 		</div>
 	) : null
 }
@@ -32,5 +40,25 @@ const { body } = Astro.props;
 	.body :global(p) {
 		margin-block: 0 0.75em;
 		text-wrap: pretty;
+	}
+	.body :global(ul),
+	.body :global(ol) {
+		margin-block: 0 0.75em;
+		padding-inline-start: 1.25em;
+	}
+	.teaser > :global(:first-child) {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 5;
+		line-clamp: 5;
+		overflow: hidden;
+	}
+	.more a {
+		color: inherit;
+		font-weight: 700;
+	}
+	.more a:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
 	}
 </style>

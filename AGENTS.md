@@ -62,6 +62,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 | Home      | `/`                      | Date, weather, AQI, announcements, events, celebrations, comic, news |
 | Quiz      | `/quiz`                  | Leaderboards, personal points and streaks, past questions            |
 | People    | `/people`, `/people/[slug]`, `/people/me` | Staff list by team + birthday calendar; profile page (contact and emergency details only for signed-in staff); edit your own (signed in) |
+| Announcements | `/announcements`, `/announcements/[slug]` | All announcements (current, then past); full text. The home board shows only the first block plus "Read more" |
 | Gallery   | `/gallery`               | Bento photo wall + lightbox; staff can upload                        |
 | Handbook  | `/handbook`, `/handbook/[slug]` | Office code book by topic, with search                        |
 | Page      | `/[slug]`                | Static page content                                                  |

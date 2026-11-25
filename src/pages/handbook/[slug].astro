@@ -4,6 +4,7 @@ import { PortableText } from "emdash/ui";
 import Base from "../../layouts/Base.astro";
 import { formatShortDate } from "../../utils/dates";
 import { getHandbookPages } from "../../utils/handbook";
+import "../../styles/prose.css";
 
 const slug = decodeSlug(Astro.params.slug);
 
@@ -106,83 +107,6 @@ const next = siblings[at + 1];
 		background: var(--note-yellow);
 		color: var(--ink);
 		font-weight: 700;
-	}
-
-	.prose {
-		max-width: 65ch;
-		overflow-wrap: break-word;
-	}
-	.prose :global(h2),
-	.prose :global(h3),
-	.prose :global(h4) {
-		margin: 2rem 0 0.5rem;
-		font-family: var(--font-display);
-		font-weight: 800;
-		line-height: 1.2;
-	}
-	.prose :global(h2) {
-		font-size: 1.5rem;
-	}
-	.prose :global(h3) {
-		font-size: 1.25rem;
-	}
-	.prose :global(h4) {
-		font-size: 1.0625rem;
-	}
-	.prose :global(p),
-	.prose :global(ul),
-	.prose :global(ol) {
-		margin: 0 0 1rem;
-	}
-	.prose :global(ul),
-	.prose :global(ol) {
-		padding-inline-start: 1.5rem;
-	}
-	.prose :global(li) {
-		margin-block-end: 0.35rem;
-	}
-	.prose :global(blockquote) {
-		margin: 1.5rem 0;
-		padding: 0.75rem 1rem;
-		border-inline-start: 0.3rem solid var(--highlight);
-		border-radius: var(--radius);
-		background: var(--note-yellow);
-	}
-	.prose :global(blockquote p) {
-		margin: 0;
-	}
-	.prose :global(code) {
-		padding: 0.1rem 0.35rem;
-		border-radius: 0.25rem;
-		background: var(--rule);
-		font-size: 0.9em;
-	}
-	.prose :global(pre) {
-		overflow-x: auto;
-		padding: 1rem;
-		border-radius: var(--radius);
-		background: var(--ink);
-		color: var(--sheet);
-	}
-	.prose :global(pre code) {
-		padding: 0;
-		background: none;
-	}
-	.prose :global(table) {
-		display: block;
-		overflow-x: auto;
-		margin: 0 0 1rem;
-		border-collapse: collapse;
-	}
-	.prose :global(th),
-	.prose :global(td) {
-		padding: 0.4rem 0.75rem;
-		border: 1px solid var(--rule);
-		text-align: start;
-	}
-	.prose :global(img) {
-		max-width: 100%;
-		height: auto;
 	}
 
 	.pager {
