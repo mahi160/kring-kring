@@ -131,9 +131,35 @@ const pageCtx = createPublicPageContext({
 			<slot />
 		</main>
 
+		<p class="theme-toast" role="status" hidden></p>
+
 		<EmDashBodyEnd page={pageCtx} />
 	</body>
 </html>
+
+<script>
+	// Secret: "t" previews the next colour theme, Shift+T the previous. Not saved; a reload restores today's.
+	import { THEMES } from "../utils/theme";
+
+	const root = document.documentElement;
+	const toast = document.querySelector<HTMLElement>(".theme-toast");
+	let hideTimer: number | undefined;
+
+	document.addEventListener("keydown", (e) => {
+		if (e.key.toLowerCase() !== "t" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+		const target = e.target;
+		if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable]")) return;
+		const i = THEMES.findIndex((t) => t.id === root.dataset.theme);
+		const next = THEMES[(i + (e.shiftKey ? -1 : 1) + THEMES.length) % THEMES.length];
+		root.dataset.theme = next.id;
+		document.querySelector('meta[name="theme-color"]')?.setAttribute("content", next.color);
+		if (!toast) return;
+		toast.textContent = `${next.emoji} ${next.label}`;
+		toast.hidden = false;
+		clearTimeout(hideTimer);
+		hideTimer = window.setTimeout(() => (toast.hidden = true), 1500);
+	});
+</script>
 
 <style>
 	.site-header {
@@ -235,5 +261,19 @@ const pageCtx = createPublicPageContext({
 	}
 	.wide {
 		--measure: 72rem;
+	}
+	.theme-toast {
+		position: fixed;
+		inset-block-end: 1.5rem;
+		inset-inline-start: 50%;
+		translate: -50% 0;
+		z-index: 10;
+		margin: 0;
+		padding: 0.5rem 1rem;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-weight: 700;
+		line-height: 1.3;
 	}
 </style>
