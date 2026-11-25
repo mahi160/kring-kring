@@ -105,8 +105,15 @@ const problems = (["photo", "caption"] as const).filter((key) => errors[key]);
 
 	{
 		staff ? (
-			<section class="add" aria-labelledby="add-title">
-				<h2 id="add-title">Add a photo</h2>
+			<>
+			<p class="add-open">
+				<button type="button" aria-haspopup="dialog" data-add-open>+ Add a photo</button>
+			</p>
+			<dialog class="add" id="add-photo" aria-labelledby="add-title" data-open={problems.length > 0 || failure ? "" : undefined}>
+				<div class="add-head">
+					<h2 id="add-title">Add a photo</h2>
+					<button type="button" class="add-close" data-add-close aria-label="Close">×</button>
+				</div>
 				{problems.length > 0 && (
 					<div class="error" role="alert" tabindex="-1" autofocus>
 						<p>Please fix {problems.length === 1 ? "this" : "these"} before adding:</p>
@@ -143,7 +150,8 @@ const problems = (["photo", "caption"] as const).filter((key) => errors[key]);
 					</div>
 					<button type="submit">Add to the wall</button>
 				</form>
-			</section>
+			</dialog>
+			</>
 		) : (
 			<p class="sign-in-note">
 				<a href="/sign-in?next=/gallery">Sign in to add photos</a>
@@ -194,6 +202,17 @@ const problems = (["photo", "caption"] as const).filter((key) => errors[key]);
 </Base>
 
 <script>
+	const addDialog = document.querySelector<HTMLDialogElement>("#add-photo");
+	if (addDialog) {
+		document.querySelector("[data-add-open]")?.addEventListener("click", () => addDialog.showModal());
+		addDialog.querySelector("[data-add-close]")?.addEventListener("click", () => addDialog.close());
+		addDialog.addEventListener("click", (e) => {
+			if (e.target === addDialog) addDialog.close();
+		});
+		// A rejected upload re-renders the page: reopen the form with its errors.
+		if (addDialog.hasAttribute("data-open")) addDialog.showModal();
+	}
+
 	const dialog = document.querySelector<HTMLDialogElement>("#lightbox");
 	const tiles = [...document.querySelectorAll<HTMLButtonElement>(".wall button")];
 	const img = dialog?.querySelector("img");
@@ -255,16 +274,45 @@ const problems = (["photo", "caption"] as const).filter((key) => errors[key]);
 		font-weight: 800;
 		text-align: center;
 	}
-	.add {
-		max-width: 36rem;
-		margin: 0 0 2rem;
+	.add-open {
+		margin: 0 0 1.5rem;
+	}
+	.add-open button {
+		padding: 0.65rem 1.1rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.add-open button:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+	dialog.add {
+		width: min(32rem, calc(100vw - 2rem));
 		padding: 1rem 1.25rem 1.25rem;
-		border-radius: var(--radius);
 		background: var(--note-yellow);
 		color: var(--on-highlight);
 	}
-	.add h2 {
+	.add-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
 		margin: 0 0 0.75rem;
+	}
+	.add .add-close {
+		padding: 0.2rem 0.65rem;
+		background: transparent;
+		color: inherit;
+		font-size: 1.5rem;
+		line-height: 1;
+	}
+	.add h2 {
+		margin: 0;
 		font-family: var(--font-display);
 		font-size: 1.25rem;
 		font-weight: 800;
