@@ -56,7 +56,7 @@ later_at=$(grep -bo "SMOKE later event" <<<"$html" | head -1 | cut -d: -f1)
 
 BASE="http://127.0.0.1:$PORT"
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
-for path in /quiz /people /gallery /handbook; do
+for path in /quiz /people /gallery /handbook /holidays; do
 	[[ $(status "$BASE$path") == 200 ]] || fail "$path did not load"
 done
 grep -q 'data-theme="' <<<"$html" || fail "no colour theme on the page"

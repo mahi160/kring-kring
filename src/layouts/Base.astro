@@ -34,6 +34,7 @@ const NAV = [
 	["/people", "People"],
 	["/gallery", "Gallery"],
 	["/handbook", "Handbook"],
+	["/holidays", "Holidays"],
 ] as const;
 const section = `/${Astro.url.pathname.split("/")[1]}`;
 const settingsResult = await getSiteSettingsWithCacheHint();

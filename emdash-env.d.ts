@@ -135,6 +135,21 @@ export interface Gallery {
   terms?: Record<string, TaxonomyTerm[]>;
 }
 
+export interface Holiday {
+  id: string;
+  slug: string | null;
+  status: string;
+  title: string;
+  date: string;
+  tentative?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  byline?: BylineSummary | null;
+  bylines?: ContentBylineCredit[];
+  terms?: Record<string, TaxonomyTerm[]>;
+}
+
 export interface Page {
   id: string;
   slug: string | null;
@@ -174,6 +189,7 @@ declare module "emdash" {
     quiz_questions: QuizQuestion;
     handbook: Handbook;
     gallery: Gallery;
+    holidays: Holiday;
     pages: Page;
     posts: Post;
   }

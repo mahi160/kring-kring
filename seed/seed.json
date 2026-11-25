@@ -357,6 +357,40 @@
 			]
 		},
 		{
+			"slug": "holidays",
+			"label": "Holidays",
+			"labelSingular": "Holiday",
+			"description": "Office holidays shown at /holidays and as the next-holiday chip on the home page. Add one entry per day off; consecutive days with the same title show as one holiday.",
+			"icon": "calendar",
+			"routable": false,
+			"sortOrder": 7,
+			"supports": ["drafts", "revisions"],
+			"admin": {
+				"listColumns": ["title", "date", "tentative"]
+			},
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Title",
+					"type": "string",
+					"required": true
+				},
+				{
+					"slug": "date",
+					"label": "Date",
+					"type": "datetime",
+					"required": true,
+					"indexed": true
+				},
+				{
+					"slug": "tentative",
+					"label": "Subject to the appearance of the moon",
+					"type": "boolean",
+					"defaultValue": false
+				}
+			]
+		},
+		{
 			"slug": "posts",
 			"label": "Posts",
 			"labelSingular": "Post",
@@ -448,6 +482,134 @@
 		}
 	],
 	"content": {
+		"holidays": [
+			{
+				"id": "2026-01-01-new-years-day",
+				"slug": "2026-01-01-new-years-day",
+				"status": "published",
+				"data": { "title": "New Year’s Day", "date": "2026-01-01T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-02-04-shab-e-barat",
+				"slug": "2026-02-04-shab-e-barat",
+				"status": "published",
+				"data": { "title": "Shab-e-Barat", "date": "2026-02-04T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-17-shab-e-qadr",
+				"slug": "2026-03-17-shab-e-qadr",
+				"status": "published",
+				"data": { "title": "Shab-e-Qadr", "date": "2026-03-17T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-03-19-eid-ul-fitr",
+				"slug": "2026-03-19-eid-ul-fitr",
+				"status": "published",
+				"data": { "title": "Eid-ul-Fitr", "date": "2026-03-19T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-20-eid-ul-fitr",
+				"slug": "2026-03-20-eid-ul-fitr",
+				"status": "published",
+				"data": { "title": "Eid-ul-Fitr", "date": "2026-03-20T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-21-eid-ul-fitr",
+				"slug": "2026-03-21-eid-ul-fitr",
+				"status": "published",
+				"data": { "title": "Eid-ul-Fitr", "date": "2026-03-21T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-22-eid-ul-fitr",
+				"slug": "2026-03-22-eid-ul-fitr",
+				"status": "published",
+				"data": { "title": "Eid-ul-Fitr", "date": "2026-03-22T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-23-eid-ul-fitr",
+				"slug": "2026-03-23-eid-ul-fitr",
+				"status": "published",
+				"data": { "title": "Eid-ul-Fitr", "date": "2026-03-23T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-03-26-independence-day",
+				"slug": "2026-03-26-independence-day",
+				"status": "published",
+				"data": { "title": "Independence Day", "date": "2026-03-26T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-04-14-bengali-new-year",
+				"slug": "2026-04-14-bengali-new-year",
+				"status": "published",
+				"data": { "title": "Bengali New Year", "date": "2026-04-14T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-05-01-may-day",
+				"slug": "2026-05-01-may-day",
+				"status": "published",
+				"data": { "title": "May Day", "date": "2026-05-01T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-05-25-eid-ul-adha",
+				"slug": "2026-05-25-eid-ul-adha",
+				"status": "published",
+				"data": { "title": "Eid-ul-Adha", "date": "2026-05-25T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-05-26-eid-ul-adha",
+				"slug": "2026-05-26-eid-ul-adha",
+				"status": "published",
+				"data": { "title": "Eid-ul-Adha", "date": "2026-05-26T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-05-27-eid-ul-adha",
+				"slug": "2026-05-27-eid-ul-adha",
+				"status": "published",
+				"data": { "title": "Eid-ul-Adha", "date": "2026-05-27T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-06-26-ashura",
+				"slug": "2026-06-26-ashura",
+				"status": "published",
+				"data": { "title": "Ashura", "date": "2026-06-26T00:00:00+06:00", "tentative": true }
+			},
+			{
+				"id": "2026-08-05-july-uprising-day",
+				"slug": "2026-08-05-july-uprising-day",
+				"status": "published",
+				"data": { "title": "July Uprising Day", "date": "2026-08-05T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-08-26-eid-e-miladunnabi",
+				"slug": "2026-08-26-eid-e-miladunnabi",
+				"status": "published",
+				"data": { "title": "Eid-e-Miladunnabi", "date": "2026-08-26T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-10-20-durga-puja",
+				"slug": "2026-10-20-durga-puja",
+				"status": "published",
+				"data": { "title": "Durga Puja", "date": "2026-10-20T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-10-21-durga-puja",
+				"slug": "2026-10-21-durga-puja",
+				"status": "published",
+				"data": { "title": "Durga Puja", "date": "2026-10-21T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-12-16-victory-day",
+				"slug": "2026-12-16-victory-day",
+				"status": "published",
+				"data": { "title": "Victory Day", "date": "2026-12-16T00:00:00+06:00", "tentative": false }
+			},
+			{
+				"id": "2026-12-25-christmas-day",
+				"slug": "2026-12-25-christmas-day",
+				"status": "published",
+				"data": { "title": "Christmas Day", "date": "2026-12-25T00:00:00+06:00", "tentative": false }
+			}
+		],
 		"announcements": [
 			{
 				"id": "welcome-to-the-hub",

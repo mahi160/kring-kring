@@ -33,6 +33,7 @@ import {
 	weekdayQuip,
 } from "../utils/dates";
 import { eventEnd, upcomingEvents } from "../utils/events";
+import { dhakaMidnight, groupHolidays, nextHoliday } from "../utils/holidays";
 import { getNews } from "../utils/news";
 import { displayName, isActive } from "../utils/people";
 import { teaStats } from "../utils/tea";
@@ -43,7 +44,7 @@ const now = new Date();
 const MONTH_MS = 31 * 86_400_000;
 
 // No page cache: expiry is evaluated per request so expired items vanish on time.
-const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki, quiz, news] = await Promise.all([
+const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki, quiz, news, holidaysResult] = await Promise.all([
 	getEmDashCollection("announcements", {
 		orderBy: { published_at: "desc" },
 		limit: 100,
@@ -61,7 +62,14 @@ const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki,
 	getWikiDigest(),
 	todaysQuiz(now),
 	getNews(),
+	// Two weeks back keeps a long holiday that is still running.
+	getEmDashCollection("holidays", {
+		where: { date: { gte: new Date(now.getTime() - 14 * 86_400_000).toISOString() } },
+		orderBy: { date: "asc" },
+		limit: 100,
+	}),
 ]);
+if (holidaysResult.error) console.error("Failed to load holidays:", holidaysResult.error);
 if (error) console.error("Failed to load announcements:", error);
 if (eventsResult.error) console.error("Failed to load events:", eventsResult.error);
 if (peopleResult.error) console.error("Failed to load people:", peopleResult.error);
@@ -77,6 +85,13 @@ const today = dhakaDay(now);
 const comic = comics.latest(today);
 const comicCounts = comic ? comics.reactionCounts(comic.id) : { like: 0, laugh: 0 };
 const myComicReactions = comic && staffId ? comics.myReactions(comic.id, staffId) : { like: false, laugh: false };
+const holiday = nextHoliday(groupHolidays(holidaysResult.entries), today);
+const holidayStart = holiday && dhakaMidnight(holiday.start);
+const holidayText = !holiday || !holidayStart
+	? null
+	: holiday.inDays === 0
+		? `Holiday today: ${holiday.title}`
+		: `Next holiday: ${holiday.title}, ${holiday.inDays === 1 ? "tomorrow" : `${formatWeekday(holidayStart)} ${formatShortDate(holidayStart)}`}${holiday.inDays > 1 ? ` · in ${holiday.inDays} days` : ""}`;
 const comicOfMonth = today.slice(8) <= "07" ? comics.comicOfMonth(previousMonth(today)) : null;
 const quizQuestion = quiz.question;
 const quizStats = quizQuestion && quiz.clock.phase === "revealed" ? dailyQuiz().stats(quiz.clock.day, quizQuestion) : null;
@@ -147,6 +162,7 @@ const until = (a: (typeof announcements)[number]) =>
 					<p class="party">Happy birthday, {listFormat.format(birthdayToday)}!</p>
 				)
 			}
+			{holidayText && <p class="holiday"><a href="/holidays">{holidayText}</a></p>}
 			{
 				(weather || air) && (
 					<div class="conditions">
@@ -394,6 +410,26 @@ const until = (a: (typeof announcements)[number]) =>
 		color: var(--on-accent);
 		font-weight: 700;
 		rotate: -1.5deg;
+	}
+	.holiday {
+		margin: 0.9rem 0 0;
+	}
+	.holiday a {
+		display: inline-block;
+		padding: 0.35rem 0.9rem;
+		border: 2px solid var(--rule);
+		border-radius: 999px;
+		background: var(--sheet);
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.holiday a:hover {
+		border-color: var(--accent-ink);
+	}
+	.holiday a:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
 	}
 	.conditions {
 		display: flex;

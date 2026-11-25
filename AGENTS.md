@@ -59,7 +59,8 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 
 | Page      | Path                     | What it shows                                                        |
 | --------- | ------------------------ | -------------------------------------------------------------------- |
-| Home      | `/`                      | Date, weather, AQI, announcements, events, celebrations, comic, news |
+| Home      | `/`                      | Date, next-holiday chip, weather, AQI, announcements, events, celebrations, comic, news |
+| Holidays  | `/holidays`              | Public holidays by year; consecutive same-title days merged; next one highlighted |
 | Quiz      | `/quiz`                  | Leaderboards, personal points and streaks, past questions            |
 | People    | `/people`, `/people/[slug]`, `/people/me` | Staff list by team + birthday calendar; profile page (contact and emergency details only for signed-in staff); edit your own (signed in) |
 | Announcements | `/announcements`, `/announcements/[slug]` | All announcements (current, then past); full text. The home board shows only the first block plus "Read more" |
@@ -76,6 +77,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 - `quiz_questions`: `question`, `choices`, `correct_choice`, `explanation`, `approved`.
 - `handbook`: `title`, `topic` (select; keep in sync with `TOPICS` in `src/utils/handbook.ts`), `order`, `summary`, `content`.
 - `gallery`: `photo`, `caption`, `uploaded_by`, `featured` (not routable).
+- `holidays`: `title`, `date`, `tentative` (moon-dependent). One entry per day off (not routable).
 - `posts`, `pages`, taxonomies `category` and `tag`: left over from the starter template; posts have no public pages.
 
 ## Visual character

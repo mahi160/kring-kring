@@ -1,0 +1,147 @@
+---
+import { getEmDashCollection } from "emdash";
+import Base from "../layouts/Base.astro";
+import { dhakaDay } from "../comics/store.ts";
+import { formatDay, formatShortDate, formatShortMonth, formatWeekday } from "../utils/dates";
+import { dhakaMidnight, groupHolidays, nextHoliday } from "../utils/holidays";
+
+const { entries, error } = await getEmDashCollection("holidays", { orderBy: { date: "asc" }, limit: 500 });
+if (error) console.error("Failed to load holidays:", error);
+const today = dhakaDay(new Date());
+const holidays = groupHolidays(entries);
+const next = nextHoliday(holidays, today);
+const years = [...new Set(holidays.map((h) => h.start.slice(0, 4)))].map((year) => ({
+	year,
+	holidays: holidays.filter((h) => h.start.startsWith(year)),
+}));
+
+const when = (h: (typeof holidays)[number]) =>
+	h.days === 1
+		? formatWeekday(dhakaMidnight(h.start))
+		: `${formatWeekday(dhakaMidnight(h.start))} ${formatShortDate(dhakaMidnight(h.start))} to ${formatWeekday(dhakaMidnight(h.end))} ${formatShortDate(dhakaMidnight(h.end))} · ${h.days} days`;
+---
+
+<Base title="Holidays" description="Office public holidays.">
+	<h1 class="page-title">Holidays</h1>
+	<p class="page-intro">Public holidays for the office. Days marked with a moon depend on the moon sighting and may shift.</p>
+
+	{
+		error ? (
+			<p class="empty">Holidays couldn't be loaded. Refresh the page in a minute.</p>
+		) : years.length === 0 ? (
+			<p class="empty">No holidays listed yet.</p>
+		) : (
+			years.map(({ year, holidays }) => (
+				<section class="card year" aria-labelledby={`y-${year}`}>
+					<h2 class="card-title" id={`y-${year}`}>{year}</h2>
+					<ol class="days" role="list">
+						{holidays.map((h) => {
+							const start = dhakaMidnight(h.start);
+							const isNext = next?.start === h.start;
+							return (
+								<li class:list={["day", { past: h.end < today, next: isNext }]}>
+									<time class="stub" datetime={h.start}>
+										<span class="stub-month">{formatShortMonth(start)}</span>
+										<span class="stub-day">{formatDay(start)}</span>
+									</time>
+									<div class="text">
+										<h3>
+											{h.title}
+											{isNext && <span class="badge">{next.inDays === 0 ? "Today" : "Next up"}</span>}
+										</h3>
+										<p class="when">{when(h)}</p>
+										{h.tentative && <p class="moon">☾ Subject to the appearance of the moon</p>}
+									</div>
+								</li>
+							);
+						})}
+					</ol>
+				</section>
+			))
+		)
+	}
+</Base>
+
+<style>
+	.empty {
+		font-weight: 700;
+	}
+	.year {
+		max-width: 44rem;
+		margin-block-end: 2.5rem;
+	}
+	.days {
+		display: grid;
+		gap: 0.5rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.day {
+		display: flex;
+		align-items: center;
+		border-block-end: 1px solid var(--rule);
+	}
+	.day:last-child {
+		border-block-end: 0;
+	}
+	.day.past {
+		color: var(--slate);
+	}
+	.day.past .stub-month {
+		color: var(--slate);
+	}
+	.day.next {
+		border-radius: var(--radius);
+		background: var(--note-yellow);
+		color: var(--on-highlight);
+	}
+	.stub {
+		display: grid;
+		justify-items: center;
+		flex: none;
+		width: 4rem;
+		padding-block: 0.5rem;
+		font-family: var(--font-display);
+	}
+	.stub-month {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--accent-ink);
+	}
+	.stub-day {
+		font-size: 1.75rem;
+		font-weight: 800;
+		line-height: 1;
+	}
+	.text {
+		min-width: 0;
+		padding: 0.5rem 0.75rem;
+	}
+	h3 {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-size: 1.0625rem;
+	}
+	.badge {
+		padding: 0.1rem 0.6rem;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font-size: 0.8125rem;
+	}
+	.when,
+	.moon {
+		margin: 0.15rem 0 0;
+		font-size: 0.875rem;
+	}
+	.moon {
+		color: var(--slate);
+	}
+	.day.next .moon {
+		color: inherit;
+	}
+</style>
