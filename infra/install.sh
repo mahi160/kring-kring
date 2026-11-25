@@ -27,6 +27,7 @@ install -d -o hub -g hub "$DATA"
 rm -rf "$NEW"
 cp -R "$SRC" "$NEW"
 chown -R root:root "$NEW"
+chmod 755 "$NEW" # deploy.sh's bundle comes from a mktemp dir (700); hub must read the app
 cd "$NEW"
 CI=true pnpm install --prod --frozen-lockfile
 

@@ -3,7 +3,7 @@
 # tag `hub-build`) unless it is already installed or already failed once.
 # Run as root by hub-update.timer. Settings: /etc/hub/update.env
 #   GITHUB_REPO=owner/name
-#   GITHUB_TOKEN=<fine-grained token, this repo only, Contents: read-only>
+#   GITHUB_TOKEN=<optional; needed for a private repo: fine-grained, this repo only, Contents: read-only>
 set -euo pipefail
 
 # Everything is in main so bash has read the whole file before install.sh replaces it.
@@ -41,7 +41,9 @@ main() {
 }
 
 github() {
-	curl -sS --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+	local auth=()
+	[[ -n ${GITHUB_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
+	curl -sS --max-time 120 "${auth[@]}" -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
 }
 
 main "$@"

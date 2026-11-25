@@ -53,12 +53,15 @@ Check with `journalctl -u hub-update -n 50` and `cat /opt/hub/deployed-build`.
 
 One-time setup:
 
-1. On GitHub, create a fine-grained token: this repository only, **Contents: read-only**.
+1. Public repo: no token needed (unauthenticated GitHub API allows 60 requests/hour per
+   office IP; the timer uses ~12). Private repo, or the office IP hits that limit
+   (`HTTP 403` in the log): create a fine-grained token, this repository only,
+   **Contents: read-only**, and add `GITHUB_TOKEN=github_pat_...` below.
 2. On the hub:
 
    ```bash
    install -m 600 /dev/null /etc/hub/update.env
-   nano /etc/hub/update.env   # GITHUB_REPO=owner/office-hub and GITHUB_TOKEN=github_pat_...
+   nano /etc/hub/update.env   # GITHUB_REPO=mahi160/kring-kring
    systemctl enable --now hub-update.timer
    ```
 
@@ -66,8 +69,8 @@ One-time setup:
    `./deploy.sh` once first.)
 3. In the repo settings, protect `main`: pull requests required, the `build` check must pass.
 
-When the token expires, the timer logs `GitHub API returned HTTP 401`; put a new one in
-`update.env`.
+With a token, when it expires the timer logs `GitHub API returned HTTP 401`; put a new one
+in `update.env`.
 
 ## Background work
 
