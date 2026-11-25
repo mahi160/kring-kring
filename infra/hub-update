@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Install the newest build published by .github/workflows/deploy.yml (release
+# tag `hub-build`) unless it is already installed or already failed once.
+# Run as root by hub-update.timer. Settings: /etc/hub/update.env
+#   GITHUB_REPO=owner/name
+#   GITHUB_TOKEN=<fine-grained token, this repo only, Contents: read-only>
+set -euo pipefail
+
+# Everything is in main so bash has read the whole file before install.sh replaces it.
+main() {
+	source /etc/hub/update.env
+	local api=https://api.github.com/repos/$GITHUB_REPO
+	local state=/opt/hub/deployed-build failed=/opt/hub/failed-build
+	local code id name
+	tmp=$(mktemp -d) # global: the EXIT trap runs after main returns
+	trap 'rm -rf "$tmp"' EXIT
+
+	code=$(github -o "$tmp/release.json" -w '%{http_code}' -H 'Accept: application/vnd.github+json' \
+		"$api/releases/tags/hub-build")
+	[[ $code == 404 ]] && return 0 # nothing published yet, or mid-publish
+	[[ $code == 200 ]] || { echo "GitHub API returned HTTP $code" >&2; return 1; }
+	read -r id name < <(node -e '
+		const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+		const a = r.assets.find((a) => /^hub-[0-9a-f]+\.tar\.gz$/.test(a.name));
+		if (a) console.log(a.id, a.name);' "$tmp/release.json") || return 0
+
+	[[ $name == "$(cat "$state" 2>/dev/null || true)" ]] && return 0
+	[[ $name == "$(cat "$failed" 2>/dev/null || true)" ]] && return 0
+
+	echo "Installing $name"
+	github -fL -o "$tmp/bundle.tar.gz" -H 'Accept: application/octet-stream' "$api/releases/assets/$id"
+	mkdir "$tmp/bundle"
+	tar -xzf "$tmp/bundle.tar.gz" -C "$tmp/bundle"
+	if bash "$tmp/bundle/install.sh" "$tmp/bundle"; then
+		echo "$name" >"$state"
+	else
+		echo "$name" >"$failed"
+		echo "$name failed to install; still running $(cat "$state" 2>/dev/null || echo 'the previous build')." >&2
+		return 1
+	fi
+}
+
+github() {
+	curl -sS --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+}
+
+main "$@"

@@ -1,0 +1,9 @@
+[Unit]
+Description=Install the newest Office hub build from GitHub
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/hub/update.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hub-update
