@@ -71,7 +71,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 
 - `announcements`: `title`, `body` (Portable Text), `pinned`, `expires_at`.
 - `events`: `title`, `starts_at`, `ends_at`, `location`, `description`.
-- `people`: `name`, `team`, `photo`, `birthday_month`, `birthday_day`, `hide_birthday`, `joined_on`, `phone`, `bio`, `active`.
+- `people`: `name`, `team`, `designation`, `photo`, `birthday_month`, `birthday_day`, `hide_birthday`, `joined_on`, `phone`, `bio`, `active`.
 - `quiz_questions`: `question`, `choices`, `correct_choice`, `explanation`, `approved`.
 - `handbook`: `title`, `topic` (select; keep in sync with `TOPICS` in `src/utils/handbook.ts`), `order`, `summary`, `content`.
 - `gallery`: `photo`, `caption`, `uploaded_by`, `featured` (not routable).

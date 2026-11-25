@@ -49,6 +49,7 @@ const birthday = (p: (typeof people)[number]) =>
 									</span>
 								)}
 								<h3 class="name">{p.data.name}</h3>
+								{p.data.designation && <p class="designation">{p.data.designation}</p>}
 								{p.data.team && <p class="team-name">{p.data.team}</p>}
 								{p.data.bio && <p class="bio">{p.data.bio}</p>}
 								<dl class="facts">
@@ -152,6 +153,13 @@ const birthday = (p: (typeof people)[number]) =>
 		margin: 0.25rem 0 0;
 		font-size: 1.25rem;
 		line-height: 1.2;
+		overflow-wrap: anywhere;
+	}
+	.designation {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 700;
+		line-height: 1.3;
 		overflow-wrap: anywhere;
 	}
 	.team-name {

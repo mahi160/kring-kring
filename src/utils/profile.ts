@@ -2,16 +2,18 @@ import { MONTHS } from "./celebrations.ts";
 
 export const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 export const MAX_TEAM = 60;
+export const MAX_DESIGNATION = 60;
 export const MAX_PHONE = 20;
 export const MAX_BIO = 280;
 
 const PHONE = /^[0-9 +-]+$/;
 
-export type ProfileField = "team" | "birthday_month" | "birthday_day" | "phone" | "bio" | "photo";
+export type ProfileField = "team" | "designation" | "birthday_month" | "birthday_day" | "phone" | "bio" | "photo";
 
 /** What the form shows again after an error: the raw submitted text. */
 export interface ProfileValues {
 	team: string;
+	designation: string;
 	birthday_month: string;
 	birthday_day: string;
 	hide_birthday: boolean;
@@ -22,6 +24,7 @@ export interface ProfileValues {
 
 export interface ProfileData {
 	team: string | null;
+	designation: string | null;
 	birthday_month: (typeof MONTHS)[number] | null;
 	birthday_day: number | null;
 	hide_birthday: boolean;
@@ -62,6 +65,7 @@ const text = (form: FormData, key: string) => {
 export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	const values: ProfileValues = {
 		team: text(form, "team"),
+		designation: text(form, "designation"),
 		birthday_month: text(form, "birthday_month"),
 		birthday_day: text(form, "birthday_day"),
 		hide_birthday: form.get("hide_birthday") === "on",
@@ -72,6 +76,8 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	const errors: Partial<Record<ProfileField, string>> = {};
 
 	if (values.team.length > MAX_TEAM) errors.team = `Team can be at most ${MAX_TEAM} characters.`;
+	if (values.designation.length > MAX_DESIGNATION)
+		errors.designation = `Designation can be at most ${MAX_DESIGNATION} characters.`;
 
 	const monthIndex = MONTHS.findIndex((m) => m === values.birthday_month);
 	let day: number | null = null;
@@ -115,6 +121,7 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 		ok: true,
 		data: {
 			team: values.team || null,
+			designation: values.designation || null,
 			birthday_month: monthIndex >= 0 ? MONTHS[monthIndex] : null,
 			birthday_day: values.birthday_month ? day : null,
 			hide_birthday: values.hide_birthday,

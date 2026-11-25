@@ -8,6 +8,7 @@ import { MONTHS } from "../../utils/celebrations";
 import { isActive } from "../../utils/people";
 import {
 	MAX_BIO,
+	MAX_DESIGNATION,
 	MAX_PHONE,
 	MAX_PHOTO_BYTES,
 	MAX_TEAM,
@@ -33,6 +34,7 @@ if (!person || !isActive(person)) {
 
 let values: ProfileValues = {
 	team: person.data.team ?? "",
+	designation: person.data.designation ?? "",
 	birthday_month: person.data.birthday_month ?? "",
 	birthday_day: person.data.birthday_day ? String(person.data.birthday_day) : "",
 	hide_birthday: person.data.hide_birthday ?? false,
@@ -82,6 +84,7 @@ if (post) {
 const fields: [ProfileField, string][] = [
 	["photo", "Photo"],
 	["team", "Team"],
+	["designation", "Designation"],
 	["birthday_month", "Birthday month"],
 	["birthday_day", "Birthday day"],
 	["phone", "Phone"],
@@ -154,6 +157,20 @@ const joinedOn = person.data.joined_on
 					aria-describedby={describe("team")}
 				/>
 				{errors.team && <p class="field-error" id="team-error">{errors.team}</p>}
+
+				<label for="designation">Designation</label>
+				<input
+					id="designation"
+					name="designation"
+					type="text"
+					maxlength={MAX_DESIGNATION}
+					value={values.designation}
+					autocomplete="organization-title"
+					aria-invalid={errors.designation ? "true" : undefined}
+					aria-describedby={describe("designation", "designation-hint")}
+				/>
+				<p class="field-hint" id="designation-hint">Your job title, e.g. Software Engineer.</p>
+				{errors.designation && <p class="field-error" id="designation-error">{errors.designation}</p>}
 
 				<label for="birthday_month">Birthday month</label>
 				<select

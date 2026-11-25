@@ -14,6 +14,7 @@ const formOf = (fields: Record<string, string | File>) => {
 };
 const valid = {
 	team: "Design",
+	designation: "Product Designer",
 	birthday_month: "March",
 	birthday_day: "12",
 	hide_birthday: "on",
@@ -34,6 +35,7 @@ test("valid input yields only the allowed keys, typed", async () => {
 		values: undefined,
 		data: {
 			team: "Design",
+			designation: "Product Designer",
 			birthday_month: "March",
 			birthday_day: 12,
 			hide_birthday: true,
@@ -49,6 +51,7 @@ test("blank optional fields become null; unchecked box is false", async () => {
 	const r = await parseProfile(formOf({}));
 	assert.deepEqual(r.ok && r.data, {
 		team: null,
+		designation: null,
 		birthday_month: null,
 		birthday_day: null,
 		hide_birthday: false,
@@ -77,10 +80,12 @@ test("phone allows digits, spaces, + and - up to 20 characters", async () => {
 	assert.equal((await parseProfile(formOf({ phone: "1".repeat(20) }))).ok, true);
 });
 
-test("bio and team lengths", async () => {
+test("bio, team and designation lengths", async () => {
 	assert.equal((await parseProfile(formOf({ bio: "x".repeat(280) }))).ok, true);
 	assert.ok((await errorsOf({ bio: "x".repeat(281) })).bio);
 	assert.ok((await errorsOf({ team: "x".repeat(61) })).team);
+	assert.equal((await parseProfile(formOf({ designation: "x".repeat(60) }))).ok, true);
+	assert.ok((await errorsOf({ designation: "x".repeat(61) })).designation);
 });
 
 test("photo: type comes from the bytes, size is capped", async () => {

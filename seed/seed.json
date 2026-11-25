@@ -111,6 +111,11 @@
 					"type": "string"
 				},
 				{
+					"slug": "designation",
+					"label": "Designation",
+					"type": "string"
+				},
+				{
 					"slug": "photo",
 					"label": "Photo",
 					"type": "image"
