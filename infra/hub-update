@@ -43,7 +43,8 @@ main() {
 github() {
 	local auth=()
 	[[ -n ${GITHUB_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
-	curl -sS --max-time 120 "${auth[@]}" -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+	# GitHub's API often answers 504 from the office network; retry before failing the run.
+	curl -sS --max-time 120 --retry 3 --retry-delay 5 "${auth[@]}" -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
 }
 
 main "$@"

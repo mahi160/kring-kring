@@ -5,10 +5,33 @@ export const MAX_TEAM = 60;
 export const MAX_DESIGNATION = 60;
 export const MAX_PHONE = 20;
 export const MAX_BIO = 280;
+export const MAX_EMAIL = 120;
+export const MAX_EMERGENCY_NAME = 80;
+export const MAX_RELATION = 40;
+export const MAX_SLACK = 80;
+export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 const PHONE = /^[0-9 +-]+$/;
+// Deliberately loose: one @, something on each side, a dot in the domain.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SLACK = /^[\p{L}\p{N}._-]+$/u;
+const GITHUB = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/;
 
-export type ProfileField = "team" | "designation" | "birthday_month" | "birthday_day" | "phone" | "bio" | "photo";
+export type ProfileField =
+	| "team"
+	| "designation"
+	| "birthday_month"
+	| "birthday_day"
+	| "phone"
+	| "email"
+	| "slack"
+	| "github"
+	| "blood_group"
+	| "emergency_name"
+	| "emergency_relation"
+	| "emergency_phone"
+	| "bio"
+	| "photo";
 
 /** What the form shows again after an error: the raw submitted text. */
 export interface ProfileValues {
@@ -18,6 +41,13 @@ export interface ProfileValues {
 	birthday_day: string;
 	hide_birthday: boolean;
 	phone: string;
+	email: string;
+	slack: string;
+	github: string;
+	blood_group: string;
+	emergency_name: string;
+	emergency_relation: string;
+	emergency_phone: string;
 	bio: string;
 	remove_photo: boolean;
 }
@@ -29,6 +59,13 @@ export interface ProfileData {
 	birthday_day: number | null;
 	hide_birthday: boolean;
 	phone: string | null;
+	email: string | null;
+	slack: string | null;
+	github: string | null;
+	blood_group: (typeof BLOOD_GROUPS)[number] | null;
+	emergency_name: string | null;
+	emergency_relation: string | null;
+	emergency_phone: string | null;
 	bio: string | null;
 }
 
@@ -70,6 +107,17 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 		birthday_day: text(form, "birthday_day"),
 		hide_birthday: form.get("hide_birthday") === "on",
 		phone: text(form, "phone"),
+		email: text(form, "email"),
+		// People paste "@handle" or a profile URL; keep just the handle.
+		slack: text(form, "slack").replace(/^@/, ""),
+		github: text(form, "github")
+			.replace(/^(https?:\/\/)?(www\.)?github\.com\//i, "")
+			.replace(/^@/, "")
+			.replace(/\/+$/, ""),
+		blood_group: text(form, "blood_group"),
+		emergency_name: text(form, "emergency_name"),
+		emergency_relation: text(form, "emergency_relation"),
+		emergency_phone: text(form, "emergency_phone"),
 		bio: text(form, "bio"),
 		remove_photo: form.get("remove_photo") === "on",
 	};
@@ -95,6 +143,30 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 	if (values.phone && !PHONE.test(values.phone))
 		errors.phone = "Use only digits, spaces, + and -.";
 	else if (values.phone.length > MAX_PHONE) errors.phone = `Phone can be at most ${MAX_PHONE} characters.`;
+
+	if (values.email.length > MAX_EMAIL) errors.email = `Email can be at most ${MAX_EMAIL} characters.`;
+	else if (values.email && !EMAIL.test(values.email)) errors.email = "Enter an email like name@example.com.";
+
+	if (values.slack.length > MAX_SLACK) errors.slack = `Slack name can be at most ${MAX_SLACK} characters.`;
+	else if (values.slack && !SLACK.test(values.slack))
+		errors.slack = "Use your Slack display name without spaces, e.g. mahi.";
+
+	if (values.github && !GITHUB.test(values.github))
+		errors.github = "Use your GitHub username: letters, digits and single hyphens, up to 39.";
+
+	const bloodGroup = BLOOD_GROUPS.find((g) => g === values.blood_group) ?? null;
+	if (values.blood_group && !bloodGroup) errors.blood_group = "Pick a blood group from the list.";
+
+	if (values.emergency_name.length > MAX_EMERGENCY_NAME)
+		errors.emergency_name = `Name can be at most ${MAX_EMERGENCY_NAME} characters.`;
+	if (values.emergency_relation.length > MAX_RELATION)
+		errors.emergency_relation = `Relation can be at most ${MAX_RELATION} characters.`;
+	if (values.emergency_phone && !PHONE.test(values.emergency_phone))
+		errors.emergency_phone = "Use only digits, spaces, + and -.";
+	else if (values.emergency_phone.length > MAX_PHONE)
+		errors.emergency_phone = `Phone can be at most ${MAX_PHONE} characters.`;
+	else if (!values.emergency_phone && (values.emergency_name || values.emergency_relation))
+		errors.emergency_phone = "Add a phone number for your emergency contact.";
 
 	if (values.bio.length > MAX_BIO) errors.bio = `Bio can be at most ${MAX_BIO} characters.`;
 
@@ -126,6 +198,13 @@ export async function parseProfile(form: FormData): Promise<ProfileResult> {
 			birthday_day: values.birthday_month ? day : null,
 			hide_birthday: values.hide_birthday,
 			phone: values.phone || null,
+			email: values.email || null,
+			slack: values.slack || null,
+			github: values.github || null,
+			blood_group: bloodGroup,
+			emergency_name: values.emergency_name || null,
+			emergency_relation: values.emergency_relation || null,
+			emergency_phone: values.emergency_phone || null,
 			bio: values.bio || null,
 		},
 		photo,

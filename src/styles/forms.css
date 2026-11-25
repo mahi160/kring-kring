@@ -73,6 +73,16 @@
 .form-page textarea {
 	resize: vertical;
 }
+.form-page .form-section {
+	margin: 1.5rem 0 0;
+	padding-block-start: 1rem;
+	border-block-start: 2px dashed var(--rule);
+	font-family: var(--font-display);
+	font-size: 1.25rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.01em;
+}
 .form-page input[type="file"] {
 	background: none;
 }

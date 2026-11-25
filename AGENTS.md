@@ -61,7 +61,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 | --------- | ------------------------ | -------------------------------------------------------------------- |
 | Home      | `/`                      | Date, weather, AQI, announcements, events, celebrations, comic, news |
 | Quiz      | `/quiz`                  | Leaderboards, personal points and streaks, past questions            |
-| People    | `/people`, `/people/me`  | Active staff by team; edit your own card (signed in)                 |
+| People    | `/people`, `/people/[slug]`, `/people/me` | Staff list by team + birthday calendar; profile page (contact and emergency details only for signed-in staff); edit your own (signed in) |
 | Gallery   | `/gallery`               | Bento photo wall + lightbox; staff can upload                        |
 | Handbook  | `/handbook`, `/handbook/[slug]` | Office code book by topic, with search                        |
 | Page      | `/[slug]`                | Static page content                                                  |
@@ -71,7 +71,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 
 - `announcements`: `title`, `body` (Portable Text), `pinned`, `expires_at`.
 - `events`: `title`, `starts_at`, `ends_at`, `location`, `description`.
-- `people`: `name`, `team`, `designation`, `photo`, `birthday_month`, `birthday_day`, `hide_birthday`, `joined_on`, `phone`, `bio`, `active`.
+- `people`: `name`, `team`, `designation`, `photo`, `birthday_month`, `birthday_day`, `hide_birthday`, `joined_on`, `phone`, `email`, `slack`, `github`, `blood_group`, `emergency_name`, `emergency_relation`, `emergency_phone`, `bio`, `active`. Contact and emergency fields render only for signed-in staff.
 - `quiz_questions`: `question`, `choices`, `correct_choice`, `explanation`, `approved`.
 - `handbook`: `title`, `topic` (select; keep in sync with `TOPICS` in `src/utils/handbook.ts`), `order`, `summary`, `content`.
 - `gallery`: `photo`, `caption`, `uploaded_by`, `featured` (not routable).

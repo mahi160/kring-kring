@@ -55,7 +55,6 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 							<div class="columns" aria-hidden="true">
 								<span>Birthday</span>
 								<span>Joined</span>
-								<span>Phone</span>
 							</div>
 							<ul class="rows" role="list">
 								{members.map((p, i) => {
@@ -73,7 +72,9 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 											)}
 											<div class="who">
 												<h3 class="name">
-													{p.data.name}
+													<a class="profile-link" href={`/people/${p.id}`}>
+														{p.data.name}
+													</a>
 													{mine && <span class="you">You</span>}
 													{mine && (
 														<a class="edit" href="/people/me">
@@ -95,14 +96,6 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 													<div class="f-joined">
 														<dt>Joined</dt>
 														<dd>{since}</dd>
-													</div>
-												)}
-												{p.data.phone && (
-													<div class="f-phone">
-														<dt>Phone</dt>
-														<dd>
-															<a href={`tel:${p.data.phone.replaceAll(" ", "")}`}>{p.data.phone}</a>
-														</dd>
 													</div>
 												)}
 											</dl>
@@ -298,8 +291,20 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 		font-variant-numeric: tabular-nums;
 		overflow-wrap: anywhere;
 	}
-	.facts a {
+	.profile-link {
 		color: inherit;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.2em;
+		text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+	}
+	.profile-link:hover {
+		text-decoration-color: currentColor;
+		text-decoration-thickness: 2px;
+	}
+	.profile-link:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+		border-radius: 0.2rem;
 	}
 	.columns {
 		display: none;
@@ -307,7 +312,7 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 	/* Wide: facts line up in fixed columns under one header, like a printed staff list. */
 	@media (min-width: 52rem) {
 		.sheet {
-			--facts: 4.5rem 5.5rem 9.5rem;
+			--facts: 5rem 6rem;
 		}
 		.row {
 			grid-template-columns: 3.5rem minmax(0, 1fr) var(--facts);
@@ -318,7 +323,7 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 		.facts,
 		.facts:empty {
 			display: grid;
-			grid-column: 3 / span 3;
+			grid-column: 3 / span 2;
 			grid-template-columns: subgrid;
 		}
 		.facts > div {
@@ -329,9 +334,6 @@ const avatarTint = ["--note-sky", "--note-pink", "--note-mint", "--note-yellow"]
 		}
 		.f-joined {
 			grid-column: 2;
-		}
-		.f-phone {
-			grid-column: 3;
 		}
 		.facts dt {
 			position: absolute;

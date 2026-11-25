@@ -51,6 +51,13 @@ export interface People {
   hide_birthday?: boolean;
   joined_on?: string;
   phone?: string;
+  email?: string;
+  slack?: string;
+  github?: string;
+  blood_group?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+  emergency_name?: string;
+  emergency_relation?: string;
+  emergency_phone?: string;
   bio?: string;
   active?: boolean;
   createdAt: Date;

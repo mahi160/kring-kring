@@ -164,6 +164,42 @@
 					"type": "string"
 				},
 				{
+					"slug": "email",
+					"label": "Email",
+					"type": "string"
+				},
+				{
+					"slug": "slack",
+					"label": "Slack name",
+					"type": "string"
+				},
+				{
+					"slug": "github",
+					"label": "GitHub username",
+					"type": "string"
+				},
+				{
+					"slug": "blood_group",
+					"label": "Blood group",
+					"type": "select",
+					"validation": { "options": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] }
+				},
+				{
+					"slug": "emergency_name",
+					"label": "Emergency contact name",
+					"type": "string"
+				},
+				{
+					"slug": "emergency_relation",
+					"label": "Emergency contact relation",
+					"type": "string"
+				},
+				{
+					"slug": "emergency_phone",
+					"label": "Emergency contact phone",
+					"type": "string"
+				},
+				{
 					"slug": "bio",
 					"label": "Short bio",
 					"type": "text",

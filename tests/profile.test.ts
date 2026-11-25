@@ -19,6 +19,13 @@ const valid = {
 	birthday_day: "12",
 	hide_birthday: "on",
 	phone: "+880 1711-123456",
+	email: "rina@example.com",
+	slack: "rina",
+	github: "rina-akter",
+	blood_group: "O+",
+	emergency_name: "Karim Akter",
+	emergency_relation: "Father",
+	emergency_phone: "+880 1811-654321",
 	bio: "Makes things pretty.",
 };
 const errorsOf = async (fields: Record<string, string | File>) => {
@@ -40,6 +47,13 @@ test("valid input yields only the allowed keys, typed", async () => {
 			birthday_day: 12,
 			hide_birthday: true,
 			phone: "+880 1711-123456",
+			email: "rina@example.com",
+			slack: "rina",
+			github: "rina-akter",
+			blood_group: "O+",
+			emergency_name: "Karim Akter",
+			emergency_relation: "Father",
+			emergency_phone: "+880 1811-654321",
 			bio: "Makes things pretty.",
 		},
 		photo: null,
@@ -56,8 +70,39 @@ test("blank optional fields become null; unchecked box is false", async () => {
 		birthday_day: null,
 		hide_birthday: false,
 		phone: null,
+		email: null,
+		slack: null,
+		github: null,
+		blood_group: null,
+		emergency_name: null,
+		emergency_relation: null,
+		emergency_phone: null,
 		bio: null,
 	});
+});
+
+test("email, Slack and GitHub: checked, and pasted @handles or URLs are trimmed", async () => {
+	for (const bad of ["rina", "rina@", "@example.com", "rina@example", "ri na@example.com"])
+		assert.ok((await errorsOf({ email: bad })).email, bad);
+	assert.ok((await errorsOf({ slack: "rina akter" })).slack);
+	for (const bad of ["-rina", "rina-", "ri--na", "rina_akter", "x".repeat(40)])
+		assert.ok((await errorsOf({ github: bad })).github, bad);
+	const r = await parseProfile(
+		formOf({ ...valid, slack: "@rina", github: "https://github.com/rina-akter/" }),
+	);
+	assert.deepEqual(r.ok && [r.data.slack, r.data.github], ["rina", "rina-akter"]);
+	assert.equal((await parseProfile(formOf({ github: "@rina-akter" }))).ok, true);
+});
+
+test("blood group must be one of the eight", async () => {
+	assert.ok((await errorsOf({ blood_group: "C+" })).blood_group);
+	for (const g of ["A-", "AB+", "O-"]) assert.equal((await parseProfile(formOf({ blood_group: g }))).ok, true, g);
+});
+
+test("emergency contact: phone format, and a name or relation needs a phone", async () => {
+	assert.ok((await errorsOf({ emergency_phone: "call mum" })).emergency_phone);
+	assert.ok((await errorsOf({ emergency_phone: "" })).emergency_phone);
+	assert.equal((await parseProfile(formOf({ emergency_phone: "01711000111" }))).ok, true);
 });
 
 test("birthday: month and day go together and must exist", async () => {
