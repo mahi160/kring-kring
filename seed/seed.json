@@ -391,6 +391,64 @@
 			]
 		},
 		{
+			"slug": "ideas",
+			"label": "Ideas",
+			"labelSingular": "Idea",
+			"description": "Staff ideas at /ideas, voted on by staff. Unpublish an idea to take it down. Who posted it shows only here: anonymous ideas never show a name on the site.",
+			"icon": "lightbulb",
+			"routable": false,
+			"sortOrder": 8,
+			"supports": ["drafts", "revisions"],
+			"admin": {
+				"listColumns": ["title", "stage", "posted_by", "anonymous"]
+			},
+			"fields": [
+				{
+					"slug": "title",
+					"label": "Idea",
+					"type": "string",
+					"required": true,
+					"validation": {
+						"maxLength": 120
+					}
+				},
+				{
+					"slug": "details",
+					"label": "Details",
+					"type": "text",
+					"validation": {
+						"maxLength": 1000
+					}
+				},
+				{
+					"slug": "stage",
+					"label": "Stage (only open ideas take votes)",
+					"type": "select",
+					"required": true,
+					"defaultValue": "open",
+					"validation": {
+						"options": ["open", "planned", "done", "declined"]
+					}
+				},
+				{
+					"slug": "anonymous",
+					"label": "Posted anonymously",
+					"type": "boolean",
+					"defaultValue": false
+				},
+				{
+					"slug": "posted_by",
+					"label": "Posted by (name)",
+					"type": "string"
+				},
+				{
+					"slug": "posted_by_id",
+					"label": "Posted by (person ID)",
+					"type": "string"
+				}
+			]
+		},
+		{
 			"slug": "posts",
 			"label": "Posts",
 			"labelSingular": "Post",

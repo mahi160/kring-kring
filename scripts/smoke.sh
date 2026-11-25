@@ -56,12 +56,13 @@ later_at=$(grep -bo "SMOKE later event" <<<"$html" | head -1 | cut -d: -f1)
 
 BASE="http://127.0.0.1:$PORT"
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
-for path in /quiz /people /gallery /handbook /holidays; do
+for path in /quiz /people /gallery /ideas /handbook /holidays; do
 	[[ $(status "$BASE$path") == 200 ]] || fail "$path did not load"
 done
 grep -q 'data-theme="' <<<"$html" || fail "no colour theme on the page"
 [[ $(status "$BASE/people/me") == 303 ]] || fail "/people/me should send signed-out visitors to sign in"
 [[ $(status -X POST -H 'Origin: http://evil.example' "$BASE/news-refresh") == 403 ]] || fail "cross-site news refresh allowed"
 [[ $(status -X POST -H 'Origin: http://evil.example' "$BASE/gallery") == 403 ]] || fail "cross-site gallery upload allowed"
+[[ $(status -X POST -H 'Origin: http://evil.example' "$BASE/ideas") == 403 ]] || fail "cross-site idea post allowed"
 
 echo "smoke OK"

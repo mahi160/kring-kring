@@ -10,12 +10,13 @@ The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, No
 | Quiz | `/quiz` | Leaderboards, your points and streaks, past questions |
 | People | `/people` | Current staff by team; `/people/me` edits your own card |
 | Gallery | `/gallery` | Photo wall; signed-in staff can add photos |
+| Ideas | `/ideas` | Staff ideas (named or anonymous) with anonymous upvotes; monthly and all-time leaderboards |
 | Handbook | `/handbook` | Office code book, grouped by topic, searchable |
 | Sign in / PIN | `/sign-in`, `/pin` | Staff PIN sign-in and PIN change |
 
 ## Operator tasks (admin)
 
-- **Content:** announcements, events, people (switch off "Currently works here" for leavers), quiz questions (approve AI drafts), handbook pages, gallery photos (tick "featured" to show one big; delete unwanted staff uploads).
+- **Content:** announcements, events, people (switch off "Currently works here" for leavers), quiz questions (approve AI drafts), handbook pages, gallery photos (tick "featured" to show one big; delete unwanted staff uploads), ideas (set the stage to planned, done or declined to freeze votes; unpublish to take one down; the poster shows here even for anonymous ideas).
 - **Staff PINs:** staff without a PIN choose their own at first sign-in. To fix a wrong claim or a lost PIN, open the person in People; the "Staff PIN" panel generates or resets their PIN.
 - **Colour theme:** Plugins → Hub background jobs → Theme. Auto picks a rainbow colour by weekday and switches on date themes (Halloween, Victory Day, Independence Day, Pohela Boishakh, New Year, Harry Potter on 31 July) by themselves; you can also choose Random or any theme (GTA 6, Eid, Winter…). To preview themes on any page, press T (next) or Shift+T (previous); this isn't saved.
 - **AI jobs:** Plugins → Hub background jobs → AI jobs (queue status, test prompt).
