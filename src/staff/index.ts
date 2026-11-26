@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { AstroCookies } from "astro";
 import { ComicStore } from "../comics/store.ts";
 import { StaffAuth } from "./auth.ts";
+import { IdeaVotes } from "./ideas.ts";
 import { DailyQuiz } from "./quiz.ts";
 import { HubSettings } from "./settings.ts";
 import { UploadLimit } from "./uploads.ts";
@@ -21,6 +22,8 @@ let quiz: DailyQuiz | undefined;
 let comics: ComicStore | undefined;
 let settings: HubSettings | undefined;
 let uploads: UploadLimit | undefined;
+let ideaPosts: UploadLimit | undefined;
+let votes: IdeaVotes | undefined;
 let visitLog: Visits | undefined;
 
 export function staffDb(): DatabaseSync {
@@ -55,6 +58,21 @@ export function hubSettings(): HubSettings {
 export function uploadLimit(): UploadLimit {
 	uploads ??= new UploadLimit(staffDb());
 	return uploads;
+}
+
+export function ideaPostLimit(): UploadLimit {
+	ideaPosts ??= new UploadLimit(staffDb(), "idea_posts");
+	return ideaPosts;
+}
+
+/**
+ * Vote hashes are keyed by EMDASH_ENCRYPTION_KEY (already in hub.env, never in a
+ * database), so a copy of staff.db can't tell who voted.
+ */
+export function ideaVotes(): IdeaVotes {
+	// ponytail: the first key only; rotating EMDASH_ENCRYPTION_KEY lets everyone vote again
+	votes ??= new IdeaVotes(staffDb(), process.env.EMDASH_ENCRYPTION_KEY?.split(",")[0]?.trim() ?? "");
+	return votes;
 }
 
 export function visits(): Visits {

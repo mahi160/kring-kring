@@ -1,0 +1,61 @@
+---
+import type { RankedIdea } from "../utils/ideas";
+
+interface Props {
+	/** This month's top open idea, or null when there are none. */
+	idea: RankedIdea | null;
+}
+
+const { idea } = Astro.props;
+---
+
+<section class="card idea" aria-labelledby="idea-title">
+	<h2 id="idea-title" class="card-title">Top idea this month</h2>
+	{
+		idea ? (
+			<>
+				<p class="title">
+					<a href={`/ideas#idea-${idea.id}`}>{idea.title}</a>
+				</p>
+				<p class="votes">
+					{idea.votes} {idea.votes === 1 ? "vote" : "votes"}
+				</p>
+			</>
+		) : (
+			<p class="none">No ideas yet this month. Got one?</p>
+		)
+	}
+	<p class="more">
+		<a href="/ideas">All ideas →</a>
+	</p>
+</section>
+
+<style>
+	.idea {
+		background: var(--note-sky);
+	}
+	p {
+		margin: 0;
+	}
+	.title {
+		font-size: 1.125rem;
+		font-weight: 700;
+		line-height: 1.3;
+		overflow-wrap: break-word;
+	}
+	.title a {
+		color: inherit;
+	}
+	.votes,
+	.none {
+		margin-block-start: 0.35rem;
+		color: var(--slate);
+	}
+	.more {
+		margin-block-start: 0.75rem;
+		font-weight: 700;
+	}
+	.more a {
+		color: var(--accent-ink);
+	}
+</style>

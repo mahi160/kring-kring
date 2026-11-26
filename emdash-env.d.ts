@@ -150,6 +150,24 @@ export interface Holiday {
   terms?: Record<string, TaxonomyTerm[]>;
 }
 
+export interface Idea {
+  id: string;
+  slug: string | null;
+  status: string;
+  title: string;
+  details?: string;
+  stage: "open" | "planned" | "done" | "declined";
+  anonymous?: boolean;
+  posted_by?: string;
+  posted_by_id?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  byline?: BylineSummary | null;
+  bylines?: ContentBylineCredit[];
+  terms?: Record<string, TaxonomyTerm[]>;
+}
+
 export interface Page {
   id: string;
   slug: string | null;
@@ -190,6 +208,7 @@ declare module "emdash" {
     handbook: Handbook;
     gallery: Gallery;
     holidays: Holiday;
+    ideas: Idea;
     pages: Page;
     posts: Post;
   }

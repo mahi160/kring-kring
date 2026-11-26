@@ -10,11 +10,12 @@ import ComicCard from "../components/ComicCard.astro";
 import DigestStrip from "../components/DigestStrip.astro";
 import AqiFace from "../components/AqiFace.astro";
 import WeatherIcon from "../components/WeatherIcon.astro";
+import IdeaCard from "../components/IdeaCard.astro";
 import { bannerTarget } from "../jobs/banner.ts";
 import { digestStore, ensureBanner, ensureDigest } from "../jobs/index.ts";
 import { portableTextToPlain } from "../jobs/digest.ts";
 import { dhakaDay, previousMonth } from "../comics/store.ts";
-import { comicStore, currentStaffId, dailyQuiz } from "../staff/index.ts";
+import { comicStore, currentStaffId, dailyQuiz, ideaVotes } from "../staff/index.ts";
 import { publicView } from "../staff/quiz.ts";
 import { todaysQuiz } from "../utils/quiz.ts";
 import Base from "../layouts/Base.astro";
@@ -34,6 +35,7 @@ import {
 } from "../utils/dates";
 import { eventEnd, upcomingEvents } from "../utils/events";
 import { dhakaMidnight, groupHolidays, nextHoliday } from "../utils/holidays";
+import { dhakaMonth, getIdeas, rankIdeas } from "../utils/ideas";
 import { getNews } from "../utils/news";
 import { isActive } from "../utils/people";
 import { teaStats } from "../utils/tea";
@@ -44,7 +46,7 @@ const now = new Date();
 const MONTH_MS = 31 * 86_400_000;
 
 // No page cache: expiry is evaluated per request so expired items vanish on time.
-const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki, quiz, news, holidaysResult] = await Promise.all([
+const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki, quiz, news, holidaysResult, ideas] = await Promise.all([
 	getEmDashCollection("announcements", {
 		orderBy: { published_at: "desc" },
 		limit: 100,
@@ -68,7 +70,9 @@ const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki,
 		orderBy: { date: "asc" },
 		limit: 100,
 	}),
+	getIdeas(),
 ]);
+const topIdea = rankIdeas(ideas, ideaVotes().counts(), dhakaMonth(now))[0] ?? null;
 if (holidaysResult.error) console.error("Failed to load holidays:", holidaysResult.error);
 if (error) console.error("Failed to load announcements:", error);
 if (eventsResult.error) console.error("Failed to load events:", eventsResult.error);
@@ -306,6 +310,7 @@ const until = (a: (typeof announcements)[number]) =>
 				myChoice={myQuizChoice}
 				stats={quizStats}
 			/>
+			<IdeaCard idea={topIdea} />
 			<TeaCard stats={teaStats.latest()} />
 			<DailyBits joke={joke} wiki={wiki} />
 		</aside>

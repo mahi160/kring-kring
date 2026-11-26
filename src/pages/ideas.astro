@@ -1,0 +1,594 @@
+---
+import { getEmDashCollection, getEmDashEntry } from "emdash";
+import { withEmDashRuntime } from "emdash/middleware";
+import Base from "../layouts/Base.astro";
+import { currentStaffId, ideaPostLimit, ideaVotes, isCrossSite, signOutStaff } from "../staff/index.ts";
+import { dhakaDay } from "../comics/store.ts";
+import {
+	dhakaMonth,
+	getIdeas,
+	MAX_DETAILS,
+	MAX_IDEAS_PER_DAY,
+	MAX_TITLE,
+	parseIdeaForm,
+	rankIdeas,
+	STAGE_LABELS,
+	type Idea,
+	type IdeaForm,
+} from "../utils/ideas";
+import { displayName, isActive } from "../utils/people";
+
+const now = new Date();
+const post = Astro.request.method === "POST";
+if (post && isCrossSite(Astro.request)) {
+	return new Response("Cross-site request blocked", { status: 403 });
+}
+// The poster and voter always come from the session cookie, never from the form.
+const personId = currentStaffId(Astro.cookies);
+if (post && !personId) return Astro.redirect("/sign-in?next=/ideas", 303);
+const person = personId ? (await getEmDashEntry("people", personId)).entry : null;
+const staff = person && isActive(person) ? person : null;
+if (post && !staff) {
+	// A removed or deactivated person's session is dead; clear it so sign-in doesn't bounce back here.
+	signOutStaff(Astro.cookies);
+	return Astro.redirect("/sign-in?next=/ideas", 303);
+}
+const view = Astro.url.searchParams.get("view") === "all" ? "all" : "month";
+const ideas = await getIdeas();
+
+let draft: IdeaForm = { title: "", details: "", anonymous: false };
+let errors: { title?: string; details?: string } = {};
+let failure: string | null = null;
+
+if (post && staff) {
+	const me = staff.data.id;
+	const form = await Astro.request.formData();
+	const intent = form.get("intent");
+	const target = ideas.find((i) => i.id === form.get("idea"));
+	const back = form.get("view") === "all" ? "?view=all" : "";
+	if (intent === "vote") {
+		// Votes freeze once an admin moves the idea on; nobody votes for their own.
+		if (target && target.stage === "open" && target.postedById !== me) ideaVotes().toggle(target.id, me);
+		return Astro.redirect(`/ideas${back}${target ? `#idea-${target.id}` : ""}`, 303);
+	}
+	if (intent === "withdraw") {
+		if (target && target.postedById === me) {
+			const result = await withEmDashRuntime((runtime) => runtime.handleContentUnpublish("ideas", target.id));
+			if (!result.success) {
+				console.error(`Idea withdraw failed for ${target.id}: ${result.error.message}`);
+				return new Response("Your idea couldn't be withdrawn. Try again.", { status: 500 });
+			}
+		}
+		return Astro.redirect(`/ideas?withdrawn=1${back ? "&view=all" : ""}`, 303);
+	}
+	const result = parseIdeaForm(form);
+	draft = result.idea;
+	if (!result.ok) {
+		errors = result.errors;
+		Astro.response.status = 400;
+	} else {
+		const day = dhakaDay(now);
+		if (!ideaPostLimit().take(me, day, MAX_IDEAS_PER_DAY)) {
+			failure = `That's ${MAX_IDEAS_PER_DAY} ideas today, which is the daily limit. Save this one for tomorrow!`;
+			Astro.response.status = 429;
+		} else {
+			// Trusted runtime: staff aren't EmDash users, so there's no actor and revisions record no author.
+			const saved = await withEmDashRuntime(async (runtime) => {
+				const create = await runtime.handleContentCreate("ideas", {
+					data: {
+						title: result.idea.title,
+						details: result.idea.details || null,
+						stage: "open",
+						anonymous: result.idea.anonymous,
+						posted_by: displayName(staff.data),
+						posted_by_id: me,
+					},
+				});
+				if (!create.success) return create.error.message;
+				const publish = await runtime.handleContentPublish("ideas", create.data.item.id);
+				if (!publish.success) {
+					await runtime.handleContentDelete("ideas", create.data.item.id);
+					return publish.error.message;
+				}
+				return null;
+			});
+			if (!saved) return Astro.redirect("/ideas?posted=1", 303);
+			console.error(`Idea post failed for ${me}: ${saved}`);
+			ideaPostLimit().release(me, day);
+			failure = "Your idea couldn't be posted. Try again in a moment.";
+			Astro.response.status = 500;
+		}
+	}
+}
+
+const { entries: people, error } = await getEmDashCollection("people", { limit: 1000 });
+if (error) console.error("Failed to load people:", error);
+const peopleById = new Map(people.map((p) => [p.data.id, p]));
+const votes = ideaVotes();
+const counts = votes.counts();
+const month = dhakaMonth(now);
+const ranked = rankIdeas(ideas, counts, view === "month" ? month : undefined);
+const decided = ideas
+	.filter((i) => i.stage !== "open")
+	.map((i) => ({ ...i, votes: counts.get(i.id) ?? 0 }))
+	.reverse();
+const me = staff?.data.id ?? null;
+const mineOf = (i: Idea) => me !== null && i.postedById === me;
+const votedOn = (i: Idea) => me !== null && votes.hasVoted(i.id, me);
+const author = (i: Idea) => {
+	if (i.anonymous) return null;
+	const p = i.postedById ? peopleById.get(i.postedById) : undefined;
+	return p ? { name: displayName(p.data), href: `/people/${p.id}` } : { name: i.postedBy || "Someone", href: null };
+};
+const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Asia/Dhaka" });
+const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "Asia/Dhaka" }).format(now);
+const posted = Astro.url.searchParams.get("posted") === "1";
+const withdrawn = Astro.url.searchParams.get("withdrawn") === "1";
+const problems = (["title", "details"] as const).filter((key) => errors[key]);
+const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
+---
+
+<Base title="Ideas" description="Ideas for the office, voted on by staff.">
+	<h1 class="page-title">Ideas</h1>
+	<p class="page-intro">Got an idea for the office? Share it, and vote for the ones you'd like to see happen. Votes are anonymous.</p>
+	{posted && <p class="saved" role="status">Idea posted. Fingers crossed!</p>}
+	{withdrawn && <p class="saved" role="status">Idea withdrawn.</p>}
+
+	{
+		staff ? (
+			<>
+			<p class="share-open">
+				<button type="button" aria-haspopup="dialog" data-share-open>+ Share an idea</button>
+			</p>
+			<dialog class="share" id="share-idea" aria-labelledby="share-title" data-open={problems.length > 0 || failure ? "" : undefined}>
+				<div class="share-head">
+					<h2 id="share-title">Share an idea</h2>
+					<button type="button" class="share-close" data-share-close aria-label="Close">×</button>
+				</div>
+				{problems.length > 0 && (
+					<div class="error" role="alert" tabindex="-1" autofocus>
+						<p>Please fix {problems.length === 1 ? "this" : "these"} before posting:</p>
+						<ul>
+							{problems.map((key) => <li><a href={`#${key}`}>{key === "title" ? "Idea" : "Details"}</a>: {errors[key]}</li>)}
+						</ul>
+					</div>
+				)}
+				{failure && <p class="error" role="alert" tabindex="-1" autofocus>{failure}</p>}
+				<form method="post" novalidate>
+					<input type="hidden" name="intent" value="post" />
+					<div class="field">
+						<label for="title">Idea</label>
+						<input
+							id="title"
+							name="title"
+							type="text"
+							maxlength={MAX_TITLE}
+							required
+							autofocus={problems.length === 0 && !failure}
+							value={draft.title}
+							aria-invalid={errors.title ? "true" : undefined}
+						/>
+					</div>
+					<div class="field">
+						<label for="details">Details (optional)</label>
+						<textarea
+							id="details"
+							name="details"
+							rows="3"
+							maxlength={MAX_DETAILS}
+							aria-invalid={errors.details ? "true" : undefined}>{draft.details}</textarea>
+					</div>
+					<div class="field">
+						<label class="check">
+							<input type="checkbox" name="anonymous" checked={draft.anonymous} aria-describedby="anonymous-hint" />
+							Post anonymously
+						</label>
+						<p class="field-hint" id="anonymous-hint">Your name won't show on the site. Admins can still see who posted it.</p>
+					</div>
+					<button type="submit">Post idea</button>
+				</form>
+			</dialog>
+			</>
+		) : (
+			<p class="sign-in-note">
+				<a href="/sign-in?next=/ideas">Sign in to share and vote</a>
+			</p>
+		)
+	}
+
+	<section aria-labelledby="board-title">
+		<h2 id="board-title" class="section-title">Leaderboard</h2>
+		<nav class="tabs" aria-label="Leaderboard period">
+			<a href="/ideas" aria-current={view === "month" ? "page" : undefined}>{monthLabel}</a>
+			<a href="/ideas?view=all" aria-current={view === "all" ? "page" : undefined}>All time</a>
+		</nav>
+		{
+			ranked.length === 0 ? (
+				<p class="empty">{view === "month" ? `No ideas yet in ${monthLabel}.` : "No ideas yet."} {staff ? "Be the first!" : "Sign in and be the first!"}</p>
+			) : (
+				<ol class="ideas" role="list">
+					{ranked.map((i) => {
+						const by = author(i);
+						const voted = votedOn(i);
+						return (
+							<li class:list={["card", "idea", { mine: mineOf(i) }]} id={`idea-${i.id}`}>
+								<span class="rank"><span class="visually-hidden">Rank </span>{i.rank}</span>
+								<div class="body">
+									<h3>{i.title}</h3>
+									{i.details && <p class="details">{i.details}</p>}
+									<p class="meta">
+										{by ? (by.href ? <a href={by.href}>{by.name}</a> : by.name) : "Anonymous"} ·{" "}
+										<time datetime={i.postedAt.toISOString()}>{dateFormat.format(i.postedAt)}</time>
+									</p>
+								</div>
+								<div class="vote">
+									{staff && !mineOf(i) ? (
+										<form method="post">
+											<input type="hidden" name="intent" value="vote" />
+											<input type="hidden" name="idea" value={i.id} />
+											<input type="hidden" name="view" value={view} />
+											<button type="submit" aria-pressed={voted ? "true" : "false"} aria-label={`${voted ? "Remove your vote for" : "Vote for"} ${i.title}, ${votesLabel(i.votes)}`}>
+												<span aria-hidden="true">▲</span>
+												<span class="count">{i.votes}</span>
+											</button>
+										</form>
+									) : (
+										<p class="tally">
+											<span class="count">{i.votes}</span> {i.votes === 1 ? "vote" : "votes"}
+										</p>
+									)}
+									{mineOf(i) && (
+										<form method="post" data-confirm="Withdraw your idea? It comes off the board.">
+											<input type="hidden" name="intent" value="withdraw" />
+											<input type="hidden" name="idea" value={i.id} />
+											<input type="hidden" name="view" value={view} />
+											<span class="yours">Your idea</span>
+											<button type="submit" class="withdraw">Withdraw</button>
+										</form>
+									)}
+								</div>
+							</li>
+						);
+					})}
+				</ol>
+			)
+		}
+	</section>
+
+	{
+		decided.length > 0 && (
+			<section aria-labelledby="decided-title">
+				<h2 id="decided-title" class="section-title">Decided</h2>
+				<ul class="ideas" role="list">
+					{decided.map((i) => {
+						const by = author(i);
+						return (
+							<li class:list={["card", "idea", "closed", i.stage]} id={`idea-${i.id}`}>
+								<span class="badge">{STAGE_LABELS[i.stage]}</span>
+								<div class="body">
+									<h3>{i.title}</h3>
+									{i.details && <p class="details">{i.details}</p>}
+									<p class="meta">
+										{by ? (by.href ? <a href={by.href}>{by.name}</a> : by.name) : "Anonymous"} ·{" "}
+										<time datetime={i.postedAt.toISOString()}>{dateFormat.format(i.postedAt)}</time> · {votesLabel(i.votes)}
+									</p>
+								</div>
+							</li>
+						);
+					})}
+				</ul>
+			</section>
+		)
+	}
+</Base>
+
+<script>
+	const share = document.querySelector<HTMLDialogElement>("#share-idea");
+	if (share) {
+		document.querySelector("[data-share-open]")?.addEventListener("click", () => share.showModal());
+		share.querySelector("[data-share-close]")?.addEventListener("click", () => share.close());
+		share.addEventListener("click", (e) => {
+			if (e.target === share) share.close();
+		});
+		// A rejected post re-renders the page: reopen the form with its errors.
+		if (share.hasAttribute("data-open")) share.showModal();
+	}
+
+	for (const form of document.querySelectorAll<HTMLFormElement>("form[data-confirm]")) {
+		form.addEventListener("submit", (e) => {
+			if (!confirm(form.dataset.confirm ?? "")) e.preventDefault();
+		});
+	}
+</script>
+
+<style>
+	.saved {
+		margin: 0 0 1.5rem;
+		padding: 0.6rem 0.85rem;
+		border-radius: var(--radius);
+		background: var(--note-mint);
+		font-weight: 700;
+	}
+	.sign-in-note {
+		margin: 0 0 2rem;
+		font-weight: 700;
+	}
+	.sign-in-note a,
+	.meta a {
+		color: var(--accent-ink);
+	}
+	.share-open {
+		margin: 0 0 2rem;
+	}
+	.share-open button,
+	.share button[type="submit"] {
+		padding: 0.65rem 1.1rem;
+		border: 0;
+		border-radius: 999px;
+		background: var(--accent-ink);
+		color: var(--on-accent);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	dialog.share {
+		width: min(32rem, calc(100vw - 2rem));
+		padding: 1rem 1.25rem 1.25rem;
+		border: 0;
+		border-radius: var(--radius);
+		background: var(--note-yellow);
+		color: var(--ink);
+	}
+	dialog.share::backdrop {
+		background: rgb(0 0 0 / 0.45);
+	}
+	.share-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin: 0 0 0.75rem;
+	}
+	.share-head h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.share-close {
+		padding: 0.2rem 0.65rem;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.share form {
+		display: grid;
+		gap: 0.9rem;
+	}
+	.field {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.field label {
+		font-weight: 700;
+	}
+	.field label.check {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.share input[type="text"],
+	.share textarea {
+		font: inherit;
+		padding: 0.55rem 0.7rem;
+		border: 2px solid var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+	}
+	.share textarea {
+		resize: vertical;
+	}
+	.share [aria-invalid="true"] {
+		border-color: var(--accent-ink);
+	}
+	.share input[type="checkbox"] {
+		width: 1.25rem;
+		height: 1.25rem;
+		accent-color: var(--accent-ink);
+	}
+	.field-hint {
+		margin: 0;
+		font-size: 0.9375rem;
+		color: var(--slate);
+	}
+	.share .error {
+		margin: 0 0 0.9rem;
+		padding: 0.6rem 0.85rem;
+		border: 2px solid var(--accent-ink);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		font-weight: 700;
+	}
+	.share .error p {
+		margin: 0;
+	}
+	.share .error ul {
+		margin: 0.25rem 0 0;
+		padding-inline-start: 1.25rem;
+	}
+	.share button[type="submit"] {
+		justify-self: start;
+	}
+	.section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 1rem 0 1rem;
+		font-size: 1.375rem;
+	}
+	.section-title::after {
+		content: "";
+		flex: 1;
+		border-block-start: 2px dashed var(--rule);
+	}
+	.tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin: 0 0 1.5rem;
+	}
+	.tabs a {
+		padding: 0.35rem 0.9rem;
+		border: 2px solid var(--ink);
+		border-radius: 999px;
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.tabs a[aria-current="page"] {
+		background: var(--highlight);
+		color: var(--on-highlight);
+	}
+	.empty {
+		margin: 0 0 2.5rem;
+		padding: 2rem 1.25rem;
+		border: 2px dashed var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+		text-align: center;
+	}
+	.ideas {
+		display: grid;
+		gap: 1.75rem;
+		margin: 0 0 2.5rem;
+		padding: 0;
+		list-style: none;
+	}
+	.idea {
+		display: flex;
+		align-items: flex-start;
+		gap: 1rem;
+		scroll-margin-block-start: 6rem;
+	}
+	.idea.mine {
+		outline: 2px solid var(--ink);
+	}
+	.rank {
+		flex: none;
+		min-width: 1.75rem;
+		font-family: var(--font-display);
+		font-size: 1.75rem;
+		font-weight: 800;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
+	.body {
+		flex: 1;
+		min-width: 0;
+		overflow-wrap: break-word;
+	}
+	.idea h3 {
+		margin: 0;
+		font-size: 1.125rem;
+		line-height: 1.3;
+		text-wrap: pretty;
+	}
+	.details {
+		margin: 0.35rem 0 0;
+		white-space: pre-line;
+	}
+	.meta {
+		margin: 0.5rem 0 0;
+		font-size: 0.9375rem;
+		color: var(--slate);
+	}
+	.vote {
+		flex: none;
+		display: grid;
+		justify-items: center;
+		gap: 0.5rem;
+		text-align: center;
+	}
+	.vote form {
+		display: grid;
+		justify-items: center;
+		gap: 0.25rem;
+	}
+	.vote button[aria-pressed] {
+		display: grid;
+		justify-items: center;
+		min-width: 3.25rem;
+		padding: 0.35rem 0.6rem;
+		border: 2px solid var(--ink);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+		font: inherit;
+		font-weight: 700;
+		line-height: 1.2;
+		cursor: pointer;
+	}
+	.vote button[aria-pressed="true"] {
+		background: var(--accent-ink);
+		border-color: var(--accent-ink);
+		color: var(--on-accent);
+	}
+	.count {
+		font-variant-numeric: tabular-nums;
+	}
+	.tally {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.2;
+	}
+	.tally .count {
+		display: block;
+		font-family: var(--font-display);
+		font-size: 1.5rem;
+		font-weight: 800;
+	}
+	.yours {
+		font-size: 0.8125rem;
+		font-weight: 700;
+	}
+	.withdraw {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--accent-ink);
+		font: inherit;
+		font-size: 0.875rem;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.badge {
+		flex: none;
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		background: var(--paper);
+		border: 2px solid var(--ink);
+		font-size: 0.8125rem;
+		font-weight: 700;
+	}
+	.closed.planned .badge {
+		background: var(--note-sky);
+	}
+	.closed.done .badge {
+		background: var(--note-mint);
+	}
+	button:focus-visible,
+	input:focus-visible,
+	textarea:focus-visible,
+	.tabs a:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
+	}
+</style>
