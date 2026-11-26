@@ -110,8 +110,10 @@ function eventWhen(e: (typeof events)[number]) {
 	return sameDay(start, end) ? `${startText} to ${formatTime(end)}` : `${startText}, until ${formatShortDate(end)}`;
 }
 const announcements = currentAnnouncements(entries, now);
-const pinned = announcements.filter((a) => a.data.pinned);
-const others = announcements.filter((a) => !a.data.pinned);
+// The board shows two (pinned first, then newest); the rest are behind "All announcements".
+const onBoard = announcements.slice(0, 2);
+const pinned = onBoard.filter((a) => a.data.pinned);
+const others = onBoard.filter((a) => !a.data.pinned);
 
 // AI extras: the page only queues work (cheap DB writes); the background runner does it.
 ensureDigest(now, [

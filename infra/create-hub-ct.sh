@@ -35,7 +35,7 @@ pct create "$VMID" "$TEMPLATE" \
 	--onboot 1 \
 	--timezone Asia/Dhaka \
 	--ssh-public-keys "$KEYS" \
-	--description "Office hub (EmDash) - http://hub.local" \
+	--description "Office hub (EmDash) - https://hub.office.lan" \
 	--start 1
 
 echo "==> Waiting for network"
@@ -60,4 +60,4 @@ pct exec "$VMID" -- bash -euo pipefail -c '
 '
 
 echo "Created CT $VMID ($HOSTNAME). Node: $(pct exec "$VMID" -- node --version)"
-echo "Check from another machine: ping $HOSTNAME.local"
+echo "Check from another machine (after a minute): ping $HOSTNAME.lxc"

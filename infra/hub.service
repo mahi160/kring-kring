@@ -10,7 +10,7 @@ Group=hub
 # ./data (SQLite DB + uploads) resolves against this directory.
 WorkingDirectory=/opt/hub
 EnvironmentFile=/etc/hub/hub.env
-# Caddy (infra/Caddyfile) serves :80/:443 and proxies here.
+# Caddy (infra/Caddyfile) serves :80 and proxies here; HTTPS is the gateway CT's.
 Environment=HOST=127.0.0.1 PORT=3000
 ExecStart=/usr/bin/node /opt/hub/app/dist/server/entry.mjs
 Restart=always

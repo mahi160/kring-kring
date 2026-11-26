@@ -1,4 +1,4 @@
-This is an EmDash site -- a CMS built on Astro with a full admin UI. It is the Office Hub: the office noticeboard served from the `hub` LXC at http://hub.local. See README.md for operator tasks and deploy.
+This is an EmDash site -- a CMS built on Astro with a full admin UI. It is the Office Hub: the office noticeboard served from the `hub` LXC at https://hub.office.lan (HTTPS and DNS come from the `gateway` CT, `infra/create-gateway-ct.sh`). See README.md for operator tasks and deploy.
 
 ## Commands
 

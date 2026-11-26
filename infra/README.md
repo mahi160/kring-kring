@@ -4,7 +4,8 @@
 
 | CT    | Script               | Limits                                         | Runs                                                      |
 | ----- | -------------------- | ---------------------------------------------- | --------------------------------------------------------- |
-| `hub` | `create-hub-ct.sh`   | 2 cores, 1 GB RAM                              | Node hub (`hub.service`) behind Caddy on :80/:443         |
+| `gateway` | `create-gateway-ct.sh` | 1 core, 256 MB RAM                    | dnsmasq (`*.office.lan`, `*.lxc`), Caddy HTTPS for every CT |
+| `hub` | `create-hub-ct.sh`   | 2 cores, 1 GB RAM                              | Node hub (`hub.service`) behind Caddy on :80              |
 | `ai`  | `create-ai-ct.sh`    | 2 cores, 3 GB RAM, no swap, **cpuunits 1**     | `llama-server` :8080 always; `sd-server` :7860 20:00–08:00 |
 
 `cpuunits 1` gives the AI container the lowest CPU weight on the host, so the hub,
@@ -13,6 +14,26 @@ processes also run at `nice 19`. Its firewall (nftables, inside the CT) only let
 the hub's IP reach ports 8080 and 7860; SSH stays open on the LAN.
 
 Check the limits on the Proxmox host: `pct config <vmid> | grep -E '^(cores|memory|swap|cpuunits):'`.
+
+## Names and HTTPS
+
+- `https://office.lan` is the Proxmox UI; `https://<ct>.office.lan` is port 80 of the CT with that hostname; `ssh root@<ct>.lxc` reaches the CT itself. A new CT gets its names within a minute; its app only has to serve plain HTTP on port 80.
+- The MikroTik (192.0.2.1) hands out DHCP and DNS. It forwards `office.lan` and `lxc` to the `gateway` CT (dnsmasq); every other name it resolves itself.
+- `lxc-dns-sync.timer` on the Proxmox host writes `<ip> <hostname>.lxc` for each running CT into the gateway's `/etc/dnsmasq.hosts/lxc` every minute. Check with `systemctl status lxc-dns-sync` on the host.
+- Caddy in the gateway terminates HTTPS with its internal CA (one root, trusted once per device; see the main README) and proxies `<name>.office.lan` to `http://<name>.lxc:80`.
+
+One-time MikroTik setup (as a user in the `full` group; `create-gateway-ct.sh` prints the IP and MAC):
+
+```
+/ip dhcp-server lease make-static [find mac-address=<gateway MAC>]
+/ip dhcp-server lease make-static [find where mac-address~"^BC:24:11" dynamic]
+/ip dns static add name=office.lan type=FWD forward-to=<gateway IP> match-subdomain=yes
+/ip dns static add name=lxc type=FWD forward-to=<gateway IP> match-subdomain=yes
+/ip dns set allow-remote-requests=yes
+/ip dhcp-server network set [find gateway=192.0.2.1] dns-server=192.0.2.1
+```
+
+`allow-remote-requests` opens DNS on every interface: the input firewall must drop port 53 from the WAN (`/ip firewall filter print where chain=input`).
 
 ## Hub settings (`/etc/hub/hub.env`)
 

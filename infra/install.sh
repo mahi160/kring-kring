@@ -17,7 +17,7 @@ if [[ ! -f /etc/hub/hub.env ]]; then
 	install -d -m 750 -o root -g hub /etc/hub
 	(umask 027; cat >/etc/hub/hub.env) <<EOF
 EMDASH_ENCRYPTION_KEY=emdash_enc_v1_$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')
-EMDASH_SITE_URL=https://hub.local
+EMDASH_SITE_URL=https://hub.office.lan
 EOF
 	chgrp hub /etc/hub/hub.env
 	echo "Created /etc/hub/hub.env."

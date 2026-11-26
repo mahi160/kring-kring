@@ -2,12 +2,12 @@
 # Build locally and install on the hub container over SSH. Pushes to main deploy
 # automatically (infra/README.md); use this for the first install, or when
 # GitHub is unreachable. The next build from main replaces whatever this installs.
-#   ./deploy.sh            (target root@hub.local)
+#   ./deploy.sh            (target root@hub.lxc)
 #   HUB_HOST=root@1.2.3.4 ./deploy.sh
 set -euo pipefail
 
 cd "$(dirname "$0")"
-HOST=${HUB_HOST:-root@hub.local}
+HOST=${HUB_HOST:-root@hub.lxc}
 SSH_OPTS=(-o StrictHostKeyChecking=accept-new)
 BUNDLE=$(mktemp -d)
 trap 'rm -rf "$BUNDLE"' EXIT
