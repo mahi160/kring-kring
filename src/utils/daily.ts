@@ -39,7 +39,7 @@ export function createJokeSource({
 			}
 			throw new Error("no office-friendly joke after 5 tries");
 		},
-		{ ttlMs: untilMidnight, now, label: "Daily joke" },
+		{ ttlMs: untilMidnight, hardExpiry: true, now, label: "Daily joke" },
 	);
 }
 
@@ -90,7 +90,7 @@ export function createWikiSource({ fetchImpl = fetch, now = Date.now }: { fetchI
 			const path = feedDate.format(new Date(now())).replaceAll("-", "/");
 			return parseWiki(await fetchJson(`https://en.wikipedia.org/api/rest_v1/feed/featured/${path}`, fetchImpl));
 		},
-		{ ttlMs: untilMidnight, now, label: "Wikipedia feed" },
+		{ ttlMs: untilMidnight, hardExpiry: true, now, label: "Wikipedia feed" },
 	);
 }
 

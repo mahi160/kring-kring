@@ -3,6 +3,8 @@ export interface CacheOptions {
 	ttlMs: number | ((now: number) => number);
 	/** After a failure, wait this long before trying again, so a dead API isn't hit on every page view. */
 	retryMs?: number;
+	/** The value is wrong once expired (e.g. today's joke), so wait for the reload instead of serving it stale. */
+	hardExpiry?: boolean;
 	now?: () => number;
 	/** Name used in the warning logged on failure. */
 	label: string;
@@ -11,10 +13,12 @@ export interface CacheOptions {
 /**
  * Wraps a loader in an in-memory cache. Concurrent callers share one load.
  * Never throws: on failure the getter resolves to null and a warning is logged.
+ * Only the first load is awaited (or every expiry, with `hardExpiry`); otherwise an expired value is returned at once
+ * while it reloads in the background, so a slow API never holds up a page view.
  * `.fetchedAt()` is when the current value was loaded (null if none or the last load failed);
  * `.refresh()` forces a reload, sharing any load already in flight.
  */
-export function cached<T>(load: () => Promise<T>, { ttlMs, retryMs = 60_000, now = Date.now, label }: CacheOptions) {
+export function cached<T>(load: () => Promise<T>, { ttlMs, retryMs = 60_000, hardExpiry = false, now = Date.now, label }: CacheOptions) {
 	let cache: { value: T | null; until: number; at: number | null } | undefined;
 	let inflight: Promise<T | null> | undefined;
 
@@ -40,7 +44,9 @@ export function cached<T>(load: () => Promise<T>, { ttlMs, retryMs = 60_000, now
 
 	function get(): Promise<T | null> {
 		if (cache && now() < cache.until) return Promise.resolve(cache.value);
-		return refresh();
+		if (!cache || hardExpiry) return refresh();
+		void refresh();
+		return Promise.resolve(cache.value);
 	}
 
 	return Object.assign(get, { refresh, fetchedAt: (): number | null => cache?.at ?? null });

@@ -24,6 +24,27 @@ test("refresh reloads before the TTL and updates fetchedAt", async () => {
 	assert.equal(get.fetchedAt(), 50);
 });
 
+test("an expired value is served at once while it reloads in the background", async () => {
+	let t = 0;
+	let n = 0;
+	let release = () => {};
+	const get = cached(
+		async () => {
+			if (++n > 1) await new Promise<void>((r) => (release = r));
+			return n;
+		},
+		{ ttlMs: 1000, now: () => t, label: "x" },
+	);
+	assert.equal(await get(), 1);
+	t = 2000;
+	assert.equal(await get(), 1);
+	assert.equal(await get(), 1);
+	assert.equal(n, 2);
+	release();
+	await get.refresh();
+	assert.equal(await get(), 2);
+});
+
 test("concurrent refreshes share one load", async () => {
 	let n = 0;
 	const get = cached(async () => ++n, { ttlMs: 10_000, label: "x" });
