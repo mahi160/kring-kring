@@ -1,10 +1,4 @@
-{
-	# HTTPS ends at the gateway CT (create-gateway-ct.sh); keep its X-Forwarded-Proto.
-	servers {
-		trusted_proxies static private_ranges
-	}
-}
-
+# HTTPS ends at the gateway CT (create-gateway-ct.sh), which proxies here over HTTP.
 http:// {
 	reverse_proxy 127.0.0.1:3000
 }
