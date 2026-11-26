@@ -53,6 +53,7 @@ for (const { id } of THEMES) {
 			["--ink", "--note-pink"],
 			["--ink", "--note-sky"],
 		];
+		if (t["--face"]) pairs.push(["--on-face", "--face"]);
 		const low = pairs
 			.map(([fg, bg]) => ({ fg, bg, ratio: contrast(t[fg], t[bg]) }))
 			.filter((p) => p.ratio < 4.5)

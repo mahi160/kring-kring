@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ensureTodaysComic, type DailyDeps } from "../src/comics/daily.ts";
 import { parseMonkeyUserImage, parseRssItems, parseTurnoffItem } from "../src/comics/sources.ts";
+import { reactionSummary, reactionViews } from "../src/comics/reactions.ts";
 import { ComicStore, dhakaDay, previousMonth } from "../src/comics/store.ts";
 
 // Dhaka is UTC+6, so noon UTC is always the same Dhaka day.
@@ -168,17 +169,47 @@ test("turnoff.us: CDATA description parsed and http upgraded to https", () => {
 const addComic = (store: ComicStore, n: number) =>
 	store.add({ source: "xkcd", sourceId: String(n), title: `C${n}`, url: `u${n}`, caption: null, file: `f${n}.png` });
 
+const none = { dead: [], mindblown: [], tooreal: [], groan: [], same: [], fire: [] };
+
 test("reactions toggle on and off, once per person per kind", () => {
 	const store = new ComicStore(new DatabaseSync(":memory:"));
 	const c = addComic(store, 1);
-	assert.equal(store.toggleReaction(c.id, "ann", "like"), true);
-	assert.equal(store.toggleReaction(c.id, "ann", "laugh"), true);
-	assert.equal(store.toggleReaction(c.id, "bob", "like"), true);
-	assert.deepEqual(store.reactionCounts(c.id), { like: 2, laugh: 1 });
-	assert.deepEqual(store.myReactions(c.id, "ann"), { like: true, laugh: true });
-	assert.equal(store.toggleReaction(c.id, "ann", "like"), false);
-	assert.deepEqual(store.reactionCounts(c.id), { like: 1, laugh: 1 });
-	assert.deepEqual(store.myReactions(c.id, "ann"), { like: false, laugh: true });
+	assert.equal(store.toggleReaction(c.id, "ann", "fire"), true);
+	assert.equal(store.toggleReaction(c.id, "ann", "dead"), true);
+	assert.equal(store.toggleReaction(c.id, "bob", "fire"), true);
+	assert.deepEqual(store.reactors(c.id), { ...none, fire: ["ann", "bob"], dead: ["ann"] });
+	assert.equal(store.toggleReaction(c.id, "ann", "fire"), false);
+	assert.deepEqual(store.reactors(c.id), { ...none, fire: ["bob"], dead: ["ann"] });
+});
+
+test("old like and laugh reactions carry over to fire and dead", () => {
+	const db = new DatabaseSync(":memory:");
+	const c = addComic(new ComicStore(db), 1);
+	const add = db.prepare("INSERT INTO comic_reactions (comic_id, person_id, kind) VALUES (?, ?, ?)");
+	for (const [p, k] of [["ann", "laugh"], ["ann", "dead"], ["bob", "like"], ["bob", "wow"]]) add.run(c.id, p, k);
+	assert.deepEqual(new ComicStore(db).reactors(c.id), { ...none, dead: ["ann"], fire: ["bob"] });
+});
+
+test("reaction views name who reacted, you first, unknown people left out", () => {
+	const names: Record<string, string> = { ann: "Ann", bob: "Bob" };
+	const reactors = { ...none, fire: ["bob", "gone", "ann"], dead: ["bob"] };
+	const views = reactionViews(reactors, (id) => names[id], "ann");
+	const fire = views.find((v) => v.kind === "fire");
+	assert.deepEqual([fire?.count, fire?.mine, fire?.names], [3, true, ["You", "Bob"]]);
+	const dead = views.find((v) => v.kind === "dead");
+	assert.deepEqual([dead?.count, dead?.mine, dead?.names], [1, false, ["Bob"]]);
+	assert.deepEqual(reactionViews(reactors, (id) => names[id], null).find((v) => v.kind === "fire")?.names, ["Bob", "Ann"]);
+});
+
+test("reaction summary: everyone once, you first, then a count", () => {
+	const nameOf = (id: string) => id.toUpperCase();
+	const summary = (reactors: Partial<typeof none>, me: string | null) =>
+		reactionSummary(reactionViews({ ...none, ...reactors }, nameOf, me));
+	assert.equal(summary({}, null), "");
+	assert.equal(summary({ dead: ["a"] }, null), "A");
+	assert.equal(summary({ dead: ["a"], fire: ["b", "a"] }, null), "A and B");
+	assert.equal(summary({ dead: ["a", "b"], same: ["me", "a"] }, "me"), "You, A and 1 other");
+	assert.equal(summary({ dead: ["a", "b", "c", "d"] }, null), "A, B and 2 others");
 });
 
 test("comic of the month: previous Dhaka month, most reactions, ties to the earlier day", () => {
@@ -189,12 +220,12 @@ test("comic of the month: previous Dhaka month, most reactions, ties to the earl
 	store.recordPick("2026-02-25", c.id);
 	store.recordPick("2026-03-02", d.id);
 	assert.equal(store.comicOfMonth("2026-02"), null); // no reactions yet
-	store.toggleReaction(b.id, "p1", "like");
-	store.toggleReaction(c.id, "p1", "like");
+	store.toggleReaction(b.id, "p1", "fire");
+	store.toggleReaction(c.id, "p1", "fire");
 	assert.equal(store.comicOfMonth("2026-02")?.id, b.id); // tie: earlier day
-	store.toggleReaction(c.id, "p2", "laugh");
+	store.toggleReaction(c.id, "p2", "dead");
 	assert.equal(store.comicOfMonth("2026-02")?.id, c.id); // both kinds count
-	for (const p of ["p1", "p2", "p3"]) store.toggleReaction(d.id, p, "like");
+	for (const p of ["p1", "p2", "p3"]) store.toggleReaction(d.id, p, "fire");
 	assert.equal(store.comicOfMonth("2026-02")?.id, c.id); // March doesn't leak in
 	assert.equal(store.comicOfMonth("2026-03")?.id, d.id);
 });

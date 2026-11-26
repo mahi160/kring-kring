@@ -3,8 +3,8 @@ import type { DatabaseSync } from "node:sqlite";
 const DHAKA_OFFSET_MS = 6 * 3_600_000; // ponytail: Dhaka has no DST; use Intl if that changes
 const DAY_MS = 86_400_000;
 
-export type ReactionKind = "like" | "laugh";
-export const REACTION_KINDS: ReactionKind[] = ["like", "laugh"];
+export type ReactionKind = "dead" | "mindblown" | "tooreal" | "groan" | "same" | "fire";
+export const REACTION_KINDS: ReactionKind[] = ["dead", "mindblown", "tooreal", "groan", "same", "fire"];
 
 export interface Comic {
 	id: number;
@@ -74,6 +74,10 @@ export class ComicStore {
 				kind TEXT NOT NULL,
 				PRIMARY KEY (comic_id, person_id, kind)
 			);
+			-- The first reaction set was like and laugh: carry them over, drop anything else retired.
+			UPDATE OR IGNORE comic_reactions SET kind = 'dead' WHERE kind = 'laugh';
+			UPDATE OR IGNORE comic_reactions SET kind = 'fire' WHERE kind = 'like';
+			DELETE FROM comic_reactions WHERE kind NOT IN (${REACTION_KINDS.map((k) => `'${k}'`).join(", ")});
 		`);
 	}
 
@@ -128,20 +132,14 @@ export class ComicStore {
 		return true;
 	}
 
-	reactionCounts(comicId: number): Record<ReactionKind, number> {
-		const counts = { like: 0, laugh: 0 };
-		for (const r of this.db.prepare("SELECT kind, COUNT(*) AS n FROM comic_reactions WHERE comic_id = ? GROUP BY kind").all(comicId)) {
-			if (r.kind === "like" || r.kind === "laugh") counts[r.kind] = Number(r.n);
+	/** Person IDs per reaction kind, in the order they reacted. */
+	reactors(comicId: number): Record<ReactionKind, string[]> {
+		const out: Record<ReactionKind, string[]> = { dead: [], mindblown: [], tooreal: [], groan: [], same: [], fire: [] };
+		for (const r of this.db.prepare("SELECT kind, person_id FROM comic_reactions WHERE comic_id = ? ORDER BY rowid").all(comicId)) {
+			const kind = REACTION_KINDS.find((k) => k === r.kind);
+			if (kind) out[kind].push(String(r.person_id));
 		}
-		return counts;
-	}
-
-	myReactions(comicId: number, personId: string): Record<ReactionKind, boolean> {
-		const mine = { like: false, laugh: false };
-		for (const r of this.db.prepare("SELECT kind FROM comic_reactions WHERE comic_id = ? AND person_id = ?").all(comicId, personId)) {
-			if (r.kind === "like" || r.kind === "laugh") mine[r.kind] = true;
-		}
-		return mine;
+		return out;
 	}
 
 	/** Most-reacted comic shown in the Dhaka month `YYYY-MM`; earlier day wins ties; null with no reactions. */

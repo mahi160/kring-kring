@@ -4,6 +4,8 @@
  * Keep the contrast pairs checked by tests/themes.test.ts: ink on paper/sheet/notes,
  * slate on paper, --accent-ink on paper/sheet, --on-accent on --accent-ink,
  * --on-highlight on --highlight.
+ * Reaction faces use --highlight with --on-highlight features; a theme whose highlight is too dark
+ * for a face sets --face and --on-face instead (contrast-checked too).
  * Special themes may also set --backdrop (any `background` value, drawn over the paper;
  * keep it faint), --corner-art (an image for the bottom corner) and --corner-size (its width). SVG data URIs must
  * not contain ";" and need "#" written as %23.
@@ -227,6 +229,8 @@
 	--accent-soft: #ffd85e;
 	--highlight: #1a1a1a;
 	--on-highlight: #ffffff;
+	--face: #ffd85e;
+	--on-face: #1a1a1a;
 	--note-yellow: #ffe9a8;
 	--note-mint: #cdeed8;
 	--note-pink: #ffd6dc;

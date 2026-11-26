@@ -1,23 +1,22 @@
 ---
 import { SOURCE_NAMES, type ComicSource } from "../comics/sources.ts";
-import type { Comic, ReactionKind } from "../comics/store.ts";
+import { reactionSummary, type ReactionView } from "../comics/reactions.ts";
+import type { Comic } from "../comics/store.ts";
+import ReactionFace from "./ReactionFace.astro";
 
 interface Props {
 	comic: Comic | null;
-	counts: Record<ReactionKind, number>;
-	/** The signed-in person's own reactions. */
-	mine: Record<ReactionKind, boolean>;
+	reactions: ReactionView[];
 	signedIn: boolean;
 	/** Last month's winner, only passed in the first days of a month. */
 	winner: Comic | null;
 }
 
-const { comic, counts, mine, signedIn, winner } = Astro.props;
+const { comic, reactions, signedIn, winner } = Astro.props;
 const sourceName = (c: Comic) => SOURCE_NAMES[c.source as ComicSource] ?? c.source;
-const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
-	{ kind: "like", emoji: "👍", label: "Like" },
-	{ kind: "laugh", emoji: "😂", label: "Laugh" },
-];
+const reacted = reactions.filter((r) => r.count > 0);
+const summary = reactionSummary(reactions);
+const topFaces = [...reacted].sort((a, b) => b.count - a.count).slice(0, 3);
 ---
 
 {
@@ -32,27 +31,53 @@ const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
 			<p class="source">
 				via <a href={comic.url} rel="noopener">{sourceName(comic)}</a>
 			</p>
-			<div class="reactions">
-				{buttons.map(({ kind, emoji, label }) =>
-					signedIn ? (
-						<form method="post" action="/comic-react">
-							<input type="hidden" name="comic" value={comic.id} />
-							<input type="hidden" name="kind" value={kind} />
-							<button type="submit" aria-pressed={mine[kind]} aria-label={`${label}, ${counts[kind]}`}>
-								<span aria-hidden="true">{emoji}</span>
-								<span aria-hidden="true" class="count">{counts[kind]}</span>
+			{
+				signedIn ? (
+					<form class="reactions" method="post" action="/comic-react" data-comic-reactions>
+						<input type="hidden" name="comic" value={comic.id} />
+						{reactions.map((r) => (
+							<button type="submit" name="kind" value={r.kind} aria-pressed={r.mine ? "true" : "false"} aria-label={`${r.label}, ${r.count}`} data-tip={`${r.label}\n${r.hint}`}>
+								<span class="face"><ReactionFace kind={r.kind} /></span>
+								<span aria-hidden="true" class="count">{r.count}</span>
 							</button>
-						</form>
-					) : (
-						<p class="static" aria-label={`${label}, ${counts[kind]}`}>
-							<span aria-hidden="true">{emoji}</span>
-							<span aria-hidden="true" class="count">{counts[kind]}</span>
-						</p>
-					),
-				)}
-				{!signedIn && (
-					<a class="signin" href="/sign-in?next=/%23comic">Sign in to react</a>
-				)}
+						))}
+					</form>
+				) : (
+					<div class="reactions">
+						{reacted.map((r) => (
+							<p class="static" aria-label={`${r.label}, ${r.count}`}>
+								<span class="face"><ReactionFace kind={r.kind} /></span>
+								<span aria-hidden="true" class="count">{r.count}</span>
+							</p>
+						))}
+						<a class="signin" href="/sign-in?next=/%23comic">Sign in to react</a>
+					</div>
+				)
+			}
+			<button type="button" class="who-open" popovertarget="comic-who" hidden={!summary} data-comic-summary>
+				<span class="stack" data-comic-stack>
+					{topFaces.map((r) => (
+						<span class="face"><ReactionFace kind={r.kind} /></span>
+					))}
+				</span>
+				<span data-comic-summary-text>{summary}</span>
+			</button>
+			<div id="comic-who" class="who-pop" popover aria-labelledby="comic-who-title">
+				<div class="who-head">
+					<h3 id="comic-who-title">Who reacted</h3>
+					<button type="button" class="who-close" popovertarget="comic-who" popovertargetaction="hide" aria-label="Close">×</button>
+				</div>
+				<ul class="who" data-comic-who>
+					{reacted.map((r) => (
+						<li>
+							<span class="face"><ReactionFace kind={r.kind} /></span>
+							<span class="who-row">
+								<strong>{r.label} · {r.count}</strong>
+								<span>{r.names.join(", ")}</span>
+							</span>
+						</li>
+					))}
+				</ul>
 			</div>
 			{
 				winner && (
@@ -69,7 +94,138 @@ const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
 	)
 }
 
+<script>
+	import { reactionSummary, type ReactionView } from "../comics/reactions.ts";
+
+	const form = document.querySelector<HTMLFormElement>("[data-comic-reactions]");
+	const who = document.querySelector<HTMLUListElement>("[data-comic-who]");
+	const summary = document.querySelector<HTMLButtonElement>("[data-comic-summary]");
+	const summaryText = document.querySelector("[data-comic-summary-text]");
+	const stack = document.querySelector("[data-comic-stack]");
+	const calm = matchMedia("(prefers-reduced-motion: reduce)");
+	let audio: AudioContext | null = null;
+	// Sends run one after another so the last reply is the latest state.
+	let queue = Promise.resolve();
+
+	const PITCH: Record<string, number> = { dead: 784, mindblown: 880, tooreal: 440, groan: 330, same: 587, fire: 659 };
+
+	/** A short synthesised blip: rising when a reaction goes on, falling when it comes off. */
+	function blip(kind: string, on: boolean) {
+		audio ??= new AudioContext();
+		const t = audio.currentTime;
+		const base = PITCH[kind] ?? 523;
+		const osc = audio.createOscillator();
+		const gain = audio.createGain();
+		osc.type = "triangle";
+		osc.frequency.setValueAtTime(on ? base : base * 1.5, t);
+		osc.frequency.exponentialRampToValueAtTime(on ? base * 2 : base * 0.75, t + 0.12);
+		gain.gain.setValueAtTime(0.0001, t);
+		gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+		gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+		osc.connect(gain).connect(audio.destination);
+		osc.start(t);
+		osc.stop(t + 0.2);
+	}
+
+	/** A handful of the button's face float up from it. */
+	function burst(button: HTMLButtonElement) {
+		const face = button.querySelector(".reaction-face");
+		if (!face) return;
+		if (calm.matches) return;
+		const box = button.getBoundingClientRect();
+		for (let i = 0; i < 7; i++) {
+			const bit = document.createElement("span");
+			bit.className = "comic-burst";
+			bit.append(face.cloneNode(true));
+			bit.style.left = `${box.left + box.width / 2}px`;
+			bit.style.top = `${box.top}px`;
+			document.body.append(bit);
+			const dx = (Math.random() - 0.5) * 120;
+			const dy = -60 - Math.random() * 80;
+			const spin = (Math.random() - 0.5) * 90;
+			bit
+				.animate(
+					[
+						{ transform: "translate(-50%, 0) scale(0.4)", opacity: 1 },
+						{ transform: `translate(calc(-50% + ${dx}px), ${dy}px) scale(1.3) rotate(${spin}deg)`, opacity: 0 },
+					],
+					{ duration: 700 + Math.random() * 300, easing: "cubic-bezier(.2,.7,.3,1)", delay: i * 25 },
+				)
+				.finished.then(() => bit.remove());
+		}
+	}
+
+	function render(views: ReactionView[]) {
+		if (!form || !who || !summary || !summaryText || !stack) return;
+		const faceOf = (kind: string) => form.querySelector(`button[value="${kind}"] .face`)?.cloneNode(true) ?? "";
+		for (const v of views) {
+			const button = form.querySelector<HTMLButtonElement>(`button[value="${v.kind}"]`);
+			if (!button) continue;
+			button.setAttribute("aria-pressed", String(v.mine));
+			button.setAttribute("aria-label", `${v.label}, ${v.count}`);
+			const count = button.querySelector(".count");
+			if (count) count.textContent = String(v.count);
+		}
+		const reacted = views.filter((v) => v.count > 0);
+		const text = reactionSummary(views);
+		summary.hidden = !text;
+		summaryText.textContent = text;
+		stack.replaceChildren(...[...reacted].sort((a, b) => b.count - a.count).slice(0, 3).map((v) => faceOf(v.kind)));
+		who.replaceChildren(
+			...reacted.map((v) => {
+				const li = document.createElement("li");
+				const row = document.createElement("span");
+				row.className = "who-row";
+				const title = document.createElement("strong");
+				title.textContent = `${v.label} · ${v.count}`;
+				const names = document.createElement("span");
+				names.textContent = v.names.join(", ");
+				row.append(title, names);
+				li.append(faceOf(v.kind), row);
+				return li;
+			}),
+		);
+		if (!text) document.querySelector<HTMLElement>("#comic-who")?.hidePopover();
+	}
+
+	form?.addEventListener("submit", (e) => {
+		const button = e.submitter;
+		if (!(button instanceof HTMLButtonElement)) return;
+		e.preventDefault();
+		const body = new FormData(form, button);
+
+		// Optimistic: flip the button now, the server reply corrects it.
+		const on = button.getAttribute("aria-pressed") !== "true";
+		const count = button.querySelector(".count");
+		button.setAttribute("aria-pressed", String(on));
+		if (count) count.textContent = String(Math.max(0, Number(count.textContent) + (on ? 1 : -1)));
+		button.classList.remove("popped");
+		void button.offsetWidth; // restart the pop animation
+		button.classList.add("popped");
+		blip(button.value, on);
+		if (on) burst(button);
+
+		queue = queue.then(async () => {
+			try {
+				const res = await fetch(form.action, { method: "POST", body, headers: { Accept: "application/json" } });
+				const data = await res.json();
+				if (res.ok) render(data.reactions);
+				else if (data.signIn) location.assign(data.signIn);
+				else location.reload(); // a new comic is up
+			} catch {
+				location.reload();
+			}
+		});
+	});
+</script>
+
 <style>
+	:global(.comic-burst) {
+		position: fixed;
+		z-index: 100;
+		line-height: 0;
+		pointer-events: none;
+	}
 	.comic {
 		margin-block-start: 3rem;
 	}
@@ -117,15 +273,14 @@ const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
 		gap: 0.5rem 0.75rem;
 		margin-block-start: 1rem;
 	}
-	.reactions form,
 	.reactions p {
 		margin: 0;
 	}
-	button,
+	.reactions button,
 	.static {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 0.55rem;
 		padding: 0.35rem 0.9rem;
 		border: 2px solid var(--rule);
 		border-radius: 999px;
@@ -134,13 +289,163 @@ const buttons: { kind: ReactionKind; emoji: string; label: string }[] = [
 		font: inherit;
 		line-height: 1.3;
 	}
-	button {
+	.reactions button {
+		position: relative;
 		cursor: pointer;
+		transition: border-color 0.15s, background-color 0.15s;
 	}
-	button[aria-pressed="true"] {
+	.reactions button:hover {
+		border-color: var(--slate);
+	}
+	.reactions button[aria-pressed="true"] {
 		border-color: var(--ink);
 		background: var(--note-yellow);
 		font-weight: 700;
+	}
+	.face {
+		display: inline-block;
+		line-height: 0;
+	}
+	/* Facebook-style bubble above the hovered reaction: name, then what it means. */
+	.reactions button::after {
+		content: attr(data-tip);
+		position: absolute;
+		bottom: calc(100% + 0.4rem);
+		left: 50%;
+		padding: 0.3rem 0.6rem;
+		border-radius: 0.6rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: 0.75rem;
+		font-weight: 700;
+		line-height: 1.3;
+		text-align: center;
+		white-space: pre;
+		opacity: 0;
+		z-index: 1;
+		transform: translate(-50%, 0.25rem);
+		pointer-events: none;
+		transition: opacity 0.15s, transform 0.15s;
+	}
+	.reactions button:hover::after,
+	.reactions button:focus-visible::after {
+		opacity: 1;
+		transform: translate(-50%, 0);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.face {
+			transition: transform 0.25s cubic-bezier(0.3, 1.8, 0.5, 1);
+		}
+		.reactions button:hover .face,
+		.reactions button:focus-visible .face {
+			transform: translateY(-0.15rem) scale(1.2) rotate(-8deg);
+		}
+		.reactions button.popped .face {
+			animation: pop 0.45s cubic-bezier(0.3, 1.8, 0.5, 1);
+		}
+		@keyframes pop {
+			0% {
+				transform: scale(1);
+			}
+			40% {
+				transform: scale(1.7) rotate(12deg);
+			}
+			100% {
+				transform: scale(1);
+			}
+		}
+	}
+	.who-open {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-block-start: 0.75rem;
+		padding: 0.2rem 0;
+		border: 0;
+		background: none;
+		color: var(--slate);
+		font: inherit;
+		font-size: 0.875rem;
+		line-height: 1.4;
+		text-align: start;
+		cursor: pointer;
+	}
+	.who-open[hidden] {
+		display: none;
+	}
+	.who-open:hover [data-comic-summary-text] {
+		color: var(--ink);
+		text-decoration: underline;
+	}
+	.stack {
+		display: inline-flex;
+	}
+	/* Overlapping faces, like Facebook's reaction summary; :global as the client re-renders them. */
+	.stack > :global(.face + .face) {
+		margin-inline-start: -0.4rem;
+	}
+	.stack :global(.reaction-face) {
+		inline-size: 1.4rem;
+		block-size: 1.4rem;
+	}
+	.who-pop {
+		width: min(24rem, calc(100vw - 2rem));
+		max-height: min(32rem, 80vh);
+		padding: 1rem 1.25rem 1.25rem;
+		border: 2px solid var(--rule);
+		border-radius: var(--radius);
+		background: var(--sheet);
+		color: var(--ink);
+		overflow: auto;
+	}
+	.who-pop::backdrop {
+		background: rgb(0 0 0 / 0.35);
+	}
+	.who-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-block-end: 0.75rem;
+	}
+	.who-head h3 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.25rem;
+		font-weight: 800;
+	}
+	.who-close {
+		padding: 0.1rem 0.6rem;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.who {
+		display: grid;
+		gap: 0.75rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		line-height: 1.4;
+		overflow-wrap: break-word;
+	}
+	/* :global because the client re-renders these rows without Astro's scope attribute. */
+	.who > :global(li) {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+	}
+	.who :global(.who-row) {
+		display: grid;
+		min-width: 0;
+	}
+	.who :global(.who-row span) {
+		color: var(--slate);
+		font-size: 0.9375rem;
 	}
 	button:focus-visible {
 		outline: 3px solid var(--highlight);
