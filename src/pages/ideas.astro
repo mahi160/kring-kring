@@ -11,6 +11,7 @@ import {
 	MAX_IDEAS_PER_DAY,
 	MAX_TITLE,
 	parseIdeaForm,
+	pointsLabel,
 	rankIdeas,
 	STAGE_LABELS,
 	type Idea,
@@ -47,8 +48,11 @@ if (post && staff) {
 	const target = ideas.find((i) => i.id === form.get("idea"));
 	const back = form.get("view") === "all" ? "?view=all" : "";
 	if (intent === "vote") {
-		// Votes freeze once an admin moves the idea on; nobody votes for their own.
-		if (target && target.stage === "open" && target.postedById !== me) ideaVotes().toggle(target.id, me);
+		const dir = form.get("dir");
+		// Votes freeze once an admin moves the idea on; nobody votes on their own.
+		if (target && (dir === "up" || dir === "down") && target.stage === "open" && target.postedById !== me) {
+			ideaVotes().vote(target.id, me, dir === "up" ? 1 : -1);
+		}
 		return Astro.redirect(`/ideas${back}${target ? `#idea-${target.id}` : ""}`, 303);
 	}
 	if (intent === "withdraw") {
@@ -105,16 +109,16 @@ const { entries: people, error } = await getEmDashCollection("people", { limit: 
 if (error) console.error("Failed to load people:", error);
 const peopleById = new Map(people.map((p) => [p.data.id, p]));
 const votes = ideaVotes();
-const counts = votes.counts();
+const scores = votes.scores();
 const month = dhakaMonth(now);
-const ranked = rankIdeas(ideas, counts, view === "month" ? month : undefined);
+const ranked = rankIdeas(ideas, scores, view === "month" ? month : undefined);
 const decided = ideas
 	.filter((i) => i.stage !== "open")
-	.map((i) => ({ ...i, votes: counts.get(i.id) ?? 0 }))
+	.map((i) => ({ ...i, score: scores.get(i.id) ?? 0 }))
 	.reverse();
 const me = staff?.data.id ?? null;
 const mineOf = (i: Idea) => me !== null && i.postedById === me;
-const votedOn = (i: Idea) => me !== null && votes.hasVoted(i.id, me);
+const myVote = (i: Idea) => (me === null ? 0 : votes.myVote(i.id, me));
 const author = (i: Idea) => {
 	if (i.anonymous) return null;
 	const p = i.postedById ? peopleById.get(i.postedById) : undefined;
@@ -125,12 +129,12 @@ const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "
 const posted = Astro.url.searchParams.get("posted") === "1";
 const withdrawn = Astro.url.searchParams.get("withdrawn") === "1";
 const problems = (["title", "details"] as const).filter((key) => errors[key]);
-const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
+
 ---
 
 <Base title="Ideas" description="Ideas for the office, voted on by staff.">
 	<h1 class="page-title">Ideas</h1>
-	<p class="page-intro">Got an idea for the office? Share it, and vote for the ones you'd like to see happen. Votes are anonymous.</p>
+	<p class="page-intro">Got an idea for the office? Share it, and vote ideas up or down. Votes are anonymous.</p>
 	{posted && <p class="saved" role="status">Idea posted. Fingers crossed!</p>}
 	{withdrawn && <p class="saved" role="status">Idea withdrawn.</p>}
 
@@ -209,7 +213,7 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 				<ol class="ideas" role="list">
 					{ranked.map((i) => {
 						const by = author(i);
-						const voted = votedOn(i);
+						const mine = myVote(i);
 						return (
 							<li class:list={["card", "idea", { mine: mineOf(i) }]} id={`idea-${i.id}`}>
 								<span class="rank"><span class="visually-hidden">Rank </span>{i.rank}</span>
@@ -223,18 +227,29 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 								</div>
 								<div class="vote">
 									{staff && !mineOf(i) ? (
-										<form method="post">
-											<input type="hidden" name="intent" value="vote" />
-											<input type="hidden" name="idea" value={i.id} />
-											<input type="hidden" name="view" value={view} />
-											<button type="submit" aria-pressed={voted ? "true" : "false"} aria-label={`${voted ? "Remove your vote for" : "Vote for"} ${i.title}, ${votesLabel(i.votes)}`}>
-												<span aria-hidden="true">▲</span>
-												<span class="count">{i.votes}</span>
-											</button>
-										</form>
+										<div class="voter" role="group" aria-label={`Vote on ${i.title}`}>
+											{(["up", "down"] as const).map((dir) => {
+												const on = mine === (dir === "up" ? 1 : -1);
+												return (
+													<form method="post" class={dir}>
+														<input type="hidden" name="intent" value="vote" />
+														<input type="hidden" name="idea" value={i.id} />
+														<input type="hidden" name="view" value={view} />
+														<input type="hidden" name="dir" value={dir} />
+														<button type="submit" aria-pressed={on ? "true" : "false"} aria-label={on ? `Remove your ${dir}vote` : `${dir === "up" ? "Up" : "Down"}vote`}>
+															<span aria-hidden="true">{dir === "up" ? "▲" : "▼"}</span>
+														</button>
+													</form>
+												);
+											})}
+											<span class="count score">
+												<span class="visually-hidden">Score </span>
+												{i.score}
+											</span>
+										</div>
 									) : (
 										<p class="tally">
-											<span class="count">{i.votes}</span> {i.votes === 1 ? "vote" : "votes"}
+											<span class="count">{i.score}</span> {Math.abs(i.score) === 1 ? "point" : "points"}
 										</p>
 									)}
 									{mineOf(i) && (
@@ -270,7 +285,7 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 									{i.details && <p class="details">{i.details}</p>}
 									<p class="meta">
 										{by ? (by.href ? <a href={by.href}>{by.name}</a> : by.name) : "Anonymous"} ·{" "}
-										<time datetime={i.postedAt.toISOString()}>{dateFormat.format(i.postedAt)}</time> · {votesLabel(i.votes)}
+										<time datetime={i.postedAt.toISOString()}>{dateFormat.format(i.postedAt)}</time> · {pointsLabel(i.score)}
 									</p>
 								</div>
 							</li>
@@ -522,11 +537,32 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 		justify-items: center;
 		gap: 0.25rem;
 	}
+	/* ▲ score ▼, top to bottom; the score sits between the two forms. */
+	.voter {
+		display: grid;
+		grid-template-areas: "up" "score" "down";
+		justify-items: center;
+		gap: 0.25rem;
+	}
+	.voter .up {
+		grid-area: up;
+	}
+	.voter .down {
+		grid-area: down;
+	}
+	.score {
+		grid-area: score;
+		font-family: var(--font-display);
+		font-size: 1.375rem;
+		font-weight: 800;
+		line-height: 1;
+	}
 	.vote button[aria-pressed] {
 		display: grid;
 		justify-items: center;
-		min-width: 3.25rem;
-		padding: 0.35rem 0.6rem;
+		min-width: 2.75rem;
+		min-height: 2.25rem;
+		padding: 0.2rem 0.6rem;
 		border: 2px solid var(--ink);
 		border-radius: var(--radius);
 		background: var(--sheet);
@@ -540,6 +576,11 @@ const votesLabel = (n: number) => `${n} ${n === 1 ? "vote" : "votes"}`;
 		background: var(--accent-ink);
 		border-color: var(--accent-ink);
 		color: var(--on-accent);
+	}
+	.vote .down button[aria-pressed="true"] {
+		background: var(--ink);
+		border-color: var(--ink);
+		color: var(--sheet);
 	}
 	.count {
 		font-variant-numeric: tabular-nums;

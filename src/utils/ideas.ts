@@ -26,7 +26,8 @@ export interface Idea {
 }
 
 export interface RankedIdea extends Idea {
-	votes: number;
+	/** Upvotes minus downvotes. */
+	score: number;
 	rank: number;
 }
 
@@ -56,16 +57,19 @@ export async function getIdeas(): Promise<Idea[]> {
 export const dhakaMonth = (d: Date) => dhakaDay(d).slice(0, 7);
 
 /**
- * Open ideas, most votes first; the earlier idea wins a tie, so ranks never repeat.
+ * Open ideas, highest score first; the earlier idea wins a tie, so ranks never repeat.
  * With `month` (YYYY-MM), only ideas posted in that Dhaka month.
  */
-export function rankIdeas(ideas: Idea[], votes: Map<string, number>, month?: string): RankedIdea[] {
+export function rankIdeas(ideas: Idea[], scores: Map<string, number>, month?: string): RankedIdea[] {
 	return ideas
 		.filter((i) => i.stage === "open" && (!month || dhakaMonth(i.postedAt) === month))
-		.map((i) => ({ ...i, votes: votes.get(i.id) ?? 0, rank: 0 }))
-		.sort((a, b) => b.votes - a.votes || a.postedAt.getTime() - b.postedAt.getTime())
+		.map((i) => ({ ...i, score: scores.get(i.id) ?? 0, rank: 0 }))
+		.sort((a, b) => b.score - a.score || a.postedAt.getTime() - b.postedAt.getTime())
 		.map((i, n) => ({ ...i, rank: n + 1 }));
 }
+
+/** "3 points", "1 point", "-2 points". */
+export const pointsLabel = (n: number) => `${n} ${Math.abs(n) === 1 ? "point" : "points"}`;
 
 export interface IdeaForm {
 	title: string;

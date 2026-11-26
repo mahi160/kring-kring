@@ -17,40 +17,53 @@ const idea = (id: string, postedAt: string, over: Partial<Idea> = {}): Idea => (
 	...over,
 });
 
-test("a vote toggles on and off, one per person per idea", () => {
+test("one vote per person per idea: up, down, switch, take back", () => {
 	const votes = new IdeaVotes(new DatabaseSync(":memory:"), "secret");
-	assert.equal(votes.toggle("i1", "alice"), true);
-	assert.equal(votes.toggle("i1", "bob"), true);
-	assert.equal(votes.toggle("i2", "alice"), true);
-	assert.deepEqual(votes.counts(), new Map([["i1", 2], ["i2", 1]]));
-	assert.equal(votes.hasVoted("i1", "alice"), true);
-	assert.equal(votes.toggle("i1", "alice"), false);
-	assert.equal(votes.hasVoted("i1", "alice"), false);
-	assert.deepEqual(votes.counts(), new Map([["i1", 1], ["i2", 1]]));
+	assert.equal(votes.vote("i1", "alice", 1), 1);
+	assert.equal(votes.vote("i1", "bob", 1), 1);
+	assert.equal(votes.vote("i1", "carol", -1), -1);
+	assert.equal(votes.vote("i2", "alice", -1), -1);
+	assert.deepEqual(votes.scores(), new Map([["i1", 1], ["i2", -1]]));
+	assert.equal(votes.myVote("i1", "alice"), 1);
+	// The other arrow switches the vote; the same arrow takes it back.
+	assert.equal(votes.vote("i1", "alice", -1), -1);
+	assert.deepEqual(votes.scores(), new Map([["i1", -1], ["i2", -1]]));
+	assert.equal(votes.vote("i1", "alice", -1), 0);
+	assert.equal(votes.myVote("i1", "alice"), 0);
+	assert.deepEqual(votes.scores(), new Map([["i1", 0], ["i2", -1]]));
+});
+
+test("votes cast before downvotes existed count as upvotes", () => {
+	const db = new DatabaseSync(":memory:");
+	db.exec("CREATE TABLE idea_votes (idea_id TEXT NOT NULL, voter TEXT NOT NULL, PRIMARY KEY (idea_id, voter)) WITHOUT ROWID");
+	db.prepare("INSERT INTO idea_votes VALUES (?, ?)").run("i1", "old-hash");
+	const votes = new IdeaVotes(db, "secret");
+	votes.vote("i1", "alice", -1);
+	assert.deepEqual(votes.scores(), new Map([["i1", 0]]));
 });
 
 test("the vote table never stores who voted", () => {
 	const db = new DatabaseSync(":memory:");
 	const votes = new IdeaVotes(db, "secret");
-	votes.toggle("i1", "alice-ulid");
+	votes.vote("i1", "alice-ulid", -1);
 	const dump = JSON.stringify(db.prepare("SELECT * FROM idea_votes").all());
 	assert.ok(!dump.includes("alice"), dump);
 	// Without the secret the stored hash can't be matched to a person.
-	assert.equal(new IdeaVotes(db, "other").hasVoted("i1", "alice-ulid"), false);
+	assert.equal(new IdeaVotes(db, "other").myVote("i1", "alice-ulid"), 0);
 	assert.throws(() => new IdeaVotes(db, ""));
 });
 
-test("only open ideas rank: most votes first, earlier idea wins a tie", () => {
+test("only open ideas rank: highest score first, earlier idea wins a tie", () => {
 	const ideas = [
 		idea("a", "2025-03-01T06:00:00Z"),
 		idea("b", "2025-03-02T06:00:00Z"),
 		idea("c", "2025-03-03T06:00:00Z"),
 		idea("d", "2025-03-04T06:00:00Z", { stage: "done" }),
 	];
-	const ranked = rankIdeas(ideas, new Map([["b", 2], ["c", 2], ["d", 9]]));
+	const ranked = rankIdeas(ideas, new Map([["a", -1], ["b", 2], ["c", 2], ["d", 9]]));
 	assert.deepEqual(
-		ranked.map((i) => [i.id, i.votes, i.rank]),
-		[["b", 2, 1], ["c", 2, 2], ["a", 0, 3]],
+		ranked.map((i) => [i.id, i.score, i.rank]),
+		[["b", 2, 1], ["c", 2, 2], ["a", -1, 3]],
 	);
 });
 

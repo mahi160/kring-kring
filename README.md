@@ -10,7 +10,7 @@ The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, No
 | Quiz | `/quiz` | Leaderboards, your points and streaks, past questions |
 | People | `/people` | Current staff by team; `/people/me` edits your own card |
 | Gallery | `/gallery` | Photo wall; signed-in staff can add photos |
-| Ideas | `/ideas` | Staff ideas (named or anonymous) with anonymous upvotes; monthly and all-time leaderboards |
+| Ideas | `/ideas` | Staff ideas (named or anonymous) with anonymous up and down votes; monthly and all-time leaderboards |
 | Handbook | `/handbook` | Office code book, grouped by topic, searchable |
 | Sign in / PIN | `/sign-in`, `/pin` | Staff PIN sign-in and PIN change |
 

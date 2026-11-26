@@ -1,5 +1,5 @@
 ---
-import type { RankedIdea } from "../utils/ideas";
+import { pointsLabel, type RankedIdea } from "../utils/ideas";
 
 interface Props {
 	/** This month's top open idea, or null when there are none. */
@@ -18,7 +18,7 @@ const { idea } = Astro.props;
 					<a href={`/ideas#idea-${idea.id}`}>{idea.title}</a>
 				</p>
 				<p class="votes">
-					{idea.votes} {idea.votes === 1 ? "vote" : "votes"}
+					{pointsLabel(idea.score)}
 				</p>
 			</>
 		) : (

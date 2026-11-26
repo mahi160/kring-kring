@@ -72,7 +72,7 @@ const [{ entries, error }, eventsResult, peopleResult, weather, air, joke, wiki,
 	}),
 	getIdeas(),
 ]);
-const topIdea = rankIdeas(ideas, ideaVotes().counts(), dhakaMonth(now))[0] ?? null;
+const topIdea = rankIdeas(ideas, ideaVotes().scores(), dhakaMonth(now))[0] ?? null;
 if (holidaysResult.error) console.error("Failed to load holidays:", holidaysResult.error);
 if (error) console.error("Failed to load announcements:", error);
 if (eventsResult.error) console.error("Failed to load events:", eventsResult.error);

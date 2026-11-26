@@ -65,7 +65,7 @@ This template ships with `.mcp.json`, `.cursor/mcp.json`, and `.vscode/mcp.json`
 | People    | `/people`, `/people/[slug]`, `/people/me` | Staff list by team + birthday calendar; profile page (contact and emergency details only for signed-in staff); edit your own (signed in) |
 | Announcements | `/announcements`, `/announcements/[slug]` | All announcements (current, then past); full text. The home board shows only the first block plus "Read more" |
 | Gallery   | `/gallery`               | Bento photo wall + lightbox; staff can upload                        |
-| Ideas     | `/ideas`                 | Staff ideas (named or anonymous), upvotes, month and all-time leaderboards; top idea card on home |
+| Ideas     | `/ideas`                 | Staff ideas (named or anonymous), up and down votes, month and all-time leaderboards; top idea card on home |
 | Handbook  | `/handbook`, `/handbook/[slug]` | Office code book by topic, with search                        |
 | Page      | `/[slug]`                | Static page content                                                  |
 | Staff     | `/sign-in`, `/pin`       | PIN sign-in and PIN change                                           |
