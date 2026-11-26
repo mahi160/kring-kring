@@ -38,6 +38,24 @@ export default defineConfig({
 			subsets: ["latin"],
 			fallbacks: ["system-ui", "sans-serif"],
 		},
+		// Greeting card faces, matching the printed cards.
+		{
+			provider: fontProviders.google(),
+			name: "Cinzel",
+			cssVariable: "--font-card-name",
+			weights: ["700"],
+			subsets: ["latin"],
+			fallbacks: ["serif"],
+		},
+		{
+			provider: fontProviders.google(),
+			name: "Cormorant Garamond",
+			cssVariable: "--font-card-script",
+			weights: ["400", "600"],
+			styles: ["italic"],
+			subsets: ["latin"],
+			fallbacks: ["serif"],
+		},
 	],
 	image: {
 		layout: "constrained",
