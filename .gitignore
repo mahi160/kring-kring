@@ -7,6 +7,14 @@ data/
 data.db
 data.db-*
 
+# Planning notes stay local (public repo)
+.scratch/
+
+# Certificates and keys (the gateway serves its root CA at /ca.crt)
+*.crt
+*.pem
+*.key
+
 # Environment
 .env
 .env.*

@@ -1,52 +1,57 @@
 # Deploy notes
 
+Office-specific values (internal domain, IPs, SSH users) are not in this repo: the scripts read
+them from an untracked `.env` (template: `.env.example` in the repo root). `<domain>` below is
+`OFFICE_DOMAIN`. Copy `.env` next to the `create-*-ct.sh` scripts on the Proxmox host.
+
 ## Containers
 
 | CT    | Script               | Limits                                         | Runs                                                      |
 | ----- | -------------------- | ---------------------------------------------- | --------------------------------------------------------- |
-| `gateway` | `create-gateway-ct.sh` | 1 core, 256 MB RAM                    | dnsmasq (`*.office.lan`, `*.lxc`), Caddy HTTPS for every CT |
+| `gateway` | `create-gateway-ct.sh` | 1 core, 256 MB RAM                    | dnsmasq (`*.<domain>`, `*.lxc`), Caddy HTTPS for every CT |
 | `hub` | `create-hub-ct.sh`   | 2 cores, 1 GB RAM                              | Node hub (`hub.service`) behind Caddy on :80              |
 | `ai`  | `create-ai-ct.sh`    | 2 cores, 3 GB RAM, no swap, **cpuunits 1**     | `llama-server` :8080 always; `sd-server` :7860 20:00–08:00 |
 
-`cpuunits 1` gives the AI container the lowest CPU weight on the host, so the hub,
-CTs 102/103 and everything else win whenever they want the CPU. Its model
+`cpuunits 1` gives the AI container the lowest CPU weight on the host, so the hub
+and everything else win whenever they want the CPU. Its model
 processes also run at `nice 19`. Its firewall (nftables, inside the CT) only lets
-the hub's IP reach ports 8080 and 7860; SSH stays open on the LAN.
+the hub's IP (`HUB_IP`) reach ports 8080 and 7860; SSH stays open on the LAN.
 
 Check the limits on the Proxmox host: `pct config <vmid> | grep -E '^(cores|memory|swap|cpuunits):'`.
 
 ## Names and HTTPS
 
-- `https://office.lan` is the Proxmox UI; `https://<ct>.office.lan` is port 80 of the CT with that hostname; `ssh root@<ct>.lxc` reaches the CT itself. A new CT gets its names within a minute; its app only has to serve plain HTTP on port 80.
-- The MikroTik (192.0.2.1) hands out DHCP and DNS. It forwards `office.lan` and `lxc` to the `gateway` CT (dnsmasq); every other name it resolves itself.
+- `https://<domain>` is the Proxmox UI; `https://<ct>.<domain>` is port 80 of the CT with that hostname; `ssh root@<ct>.lxc` reaches the CT itself. A new CT gets its names within a minute; its app only has to serve plain HTTP on port 80.
+- The office router (RouterOS) hands out DHCP and DNS. It forwards `<domain>` and `lxc` to the `gateway` CT (dnsmasq); every other name it resolves itself.
 - `lxc-dns-sync.timer` on the Proxmox host writes `<ip> <hostname>.lxc` for each running CT into the gateway's `/etc/dnsmasq.hosts/lxc` every minute. Check with `systemctl status lxc-dns-sync` on the host.
-- Caddy in the gateway terminates HTTPS with its internal CA (one root, trusted once per device; see the main README) and proxies `<name>.office.lan` to `http://<name>.lxc:80`.
+- Caddy in the gateway terminates HTTPS with its internal CA (one root, trusted once per device; see the main README) and proxies `<name>.<domain>` to `http://<name>.lxc:80`.
 
-One-time MikroTik setup (as a user in the `full` group; `create-gateway-ct.sh` prints the IP and MAC):
+One-time router setup (as a user in the `full` group; `create-gateway-ct.sh` prints the IP and MAC):
 
 ```
 /ip dhcp-server lease make-static [find mac-address=<gateway MAC>]
 /ip dhcp-server lease make-static [find where mac-address~"^BC:24:11" dynamic]
-/ip dns static add name=office.lan type=FWD forward-to=<gateway IP> match-subdomain=yes
+/ip dns static add name=<domain> type=FWD forward-to=<gateway IP> match-subdomain=yes
 /ip dns static add name=lxc type=FWD forward-to=<gateway IP> match-subdomain=yes
 /ip dns set allow-remote-requests=yes
-/ip dhcp-server network set [find gateway=192.0.2.1] dns-server=192.0.2.1
+/ip dhcp-server network set [find gateway=<router IP>] dns-server=<router IP>
 ```
 
 `allow-remote-requests` opens DNS on every interface: the input firewall must drop port 53 from the WAN (`/ip firewall filter print where chain=input`).
 
 ## Hub settings (`/etc/hub/hub.env`)
 
-`deploy.sh` creates this file once. Add these by hand, then `systemctl restart hub`.
+`deploy.sh` creates this file once (`EMDASH_ENCRYPTION_KEY`, and `EMDASH_SITE_URL` from
+`OFFICE_DOMAIN`). Add these by hand, then `systemctl restart hub`.
 Anything unset turns the feature off; the hub works without all of them.
 
 | Variable              | Used for                          | Example                                  |
 | --------------------- | --------------------------------- | ---------------------------------------- |
 | `AI_TEXT_URL`         | Quiz drafts, digest               | `http://ai.local:8080`                   |
 | `AI_IMAGE_URL`        | Daily banner                      | `http://ai.local:7860`                   |
-| `TEA_STATS_URL`       | Tea break card                    | `https://tea.example/api/stats`       |
-| `TEA_STATS_TOKEN`     | Tea break card (bearer token)     | same value as tea-app's `STATS_TOKEN`   |
-| `NODE_EXTRA_CA_CERTS` | Trusting tea-app's Caddy CA      | `/etc/hub/tea-ca.crt`               |
+| `TEA_STATS_URL`       | Tea break card                    | `https://tea.<domain>/api/stats`         |
+| `TEA_STATS_TOKEN`     | Tea break card (bearer token)     | same value as the tea app's `STATS_TOKEN` |
+| `NODE_EXTRA_CA_CERTS` | Trusting the tea app's Caddy CA   | `/etc/hub/tea-ca.crt`                    |
 | `EMAIL_SMTP_HOST`     | Invites, magic-link sign-in       | `smtp.gmail.com`                         |
 | `EMAIL_SMTP_PORT`     | (465 = TLS)                       | `465`                                    |
 | `EMAIL_SMTP_USER`     | Google Workspace account          | `hub@yourcompany.com`                    |
@@ -58,7 +63,7 @@ account with 2-Step Verification on, and create an app password for it
 (Google Account → Security → App passwords). Admin → Settings → Email can send a test.
 
 The tea app serves HTTPS with Caddy's internal CA. Copy its root certificate to the hub
-once (`/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt` on tea-app →
+once (`/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt` on the tea app's host →
 `/etc/hub/tea-ca.crt`, readable by group `hub`) and point `NODE_EXTRA_CA_CERTS` at it.
 
 ## Automatic deploys
@@ -82,7 +87,7 @@ One-time setup:
 
    ```bash
    install -m 600 /dev/null /etc/hub/update.env
-   nano /etc/hub/update.env   # GITHUB_REPO=mahi160/kring-kring
+   nano /etc/hub/update.env   # GITHUB_REPO=<owner>/<repo>
    systemctl enable --now hub-update.timer
    ```
 
@@ -97,7 +102,7 @@ in `update.env`.
 
 The `hub-jobs` plugin schedules a one-minute EmDash cron task on first boot. Each tick:
 
-- refreshes tea stats every 5 minutes (page views never call tea-app);
+- refreshes tea stats every 5 minutes (page views never call the tea app);
 - picks the day's comic and downloads its image once (retries every 15 minutes if every source fails);
 - queues tonight's quiz drafts after 21:00;
 - runs queued AI jobs one at a time (text: 60 s limit; images: 20:00–08:00 only, 20 min limit);

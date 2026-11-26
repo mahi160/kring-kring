@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Run ONCE as root on the Proxmox host (pve). Creates the `ai` LXC that runs the
+# Run ONCE as root on the Proxmox host. Creates the `ai` LXC that runs the
 # hub's local models, capped so it can never starve the other containers:
 #   2 cores, 3 GB RAM, cpuunits 1 (lowest CPU weight; everything else wins).
-#   HUB_IP=192.0.2.113 bash create-ai-ct.sh
+#   bash create-ai-ct.sh      (reads .env beside it or in its parent; see .env.example)
 # Takes 20-40 minutes: it compiles llama.cpp and stable-diffusion.cpp and downloads ~3 GB of models.
 set -euo pipefail
 
+for env in "$(dirname "$0")/.env" "$(dirname "$0")/../.env"; do
+	if [[ -f $env ]]; then source "$env"; break; fi
+done
 HOSTNAME=ai
-HUB_IP=${HUB_IP:-192.0.2.113}
+HUB_IP=${HUB_IP:?set HUB_IP in .env (see .env.example)}
 TEMPLATE=local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-GH_KEY_USERS=(mahi160 maintainer2)
+read -ra GH_KEY_USERS <<<"${SSH_KEY_GITHUB_USERS:?set SSH_KEY_GITHUB_USERS in .env (see .env.example)}"
 # Text: Qwen3 1.7B, 4-bit, ~1.1 GB.
 TEXT_MODEL_URL=https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf
 # Image: SD-Turbo (4 steps, CFG 1), 8-bit, ~2 GB.

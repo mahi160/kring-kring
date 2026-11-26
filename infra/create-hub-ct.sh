@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Run ONCE as root on the Proxmox host (pve). Creates the `hub` LXC and
+# Run ONCE as root on the Proxmox host. Creates the `hub` LXC and
 # installs its base packages. Everything after this is done by deploy.sh.
-#   bash create-hub-ct.sh
+#   bash create-hub-ct.sh      (reads .env beside it or in its parent; see .env.example)
 set -euo pipefail
 
+for env in "$(dirname "$0")/.env" "$(dirname "$0")/../.env"; do
+	if [[ -f $env ]]; then source "$env"; break; fi
+done
 HOSTNAME=hub
 TEMPLATE=local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-GH_KEY_USERS=(mahi160 maintainer2)
+DOMAIN=${OFFICE_DOMAIN:?set OFFICE_DOMAIN in .env (see .env.example)}
+read -ra GH_KEY_USERS <<<"${SSH_KEY_GITHUB_USERS:?set SSH_KEY_GITHUB_USERS in .env (see .env.example)}"
 
 if pct list | awk 'NR>1 {print $NF}' | grep -qx "$HOSTNAME"; then
 	echo "A container named '$HOSTNAME' already exists; refusing to create another." >&2
@@ -35,7 +39,7 @@ pct create "$VMID" "$TEMPLATE" \
 	--onboot 1 \
 	--timezone Asia/Dhaka \
 	--ssh-public-keys "$KEYS" \
-	--description "Office hub (EmDash) - https://hub.office.lan" \
+	--description "Office hub (EmDash) - https://hub.$DOMAIN" \
 	--start 1
 
 echo "==> Waiting for network"

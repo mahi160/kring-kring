@@ -14,10 +14,11 @@ PREV=/opt/hub/app.prev
 DATA=/opt/hub/data
 
 if [[ ! -f /etc/hub/hub.env ]]; then
+	: "${EMDASH_SITE_URL:?first install: set EMDASH_SITE_URL (deploy.sh derives it from OFFICE_DOMAIN in .env)}"
 	install -d -m 750 -o root -g hub /etc/hub
 	(umask 027; cat >/etc/hub/hub.env) <<EOF
 EMDASH_ENCRYPTION_KEY=emdash_enc_v1_$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')
-EMDASH_SITE_URL=https://hub.office.lan
+EMDASH_SITE_URL=$EMDASH_SITE_URL
 EOF
 	chgrp hub /etc/hub/hub.env
 	echo "Created /etc/hub/hub.env."

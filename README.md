@@ -1,6 +1,6 @@
 # Office Hub
 
-The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, Node, SQLite) running in the `hub` LXC at https://hub.office.lan. Staff sign in with a PIN; maintainers have admin accounts (passkey, at https://hub.office.lan/_emdash/admin).
+The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, Node, SQLite) running in the `hub` LXC at `https://hub.<domain>` (`<domain>` is `OFFICE_DOMAIN` in your untracked `.env`; see `.env.example`). Staff sign in with a PIN; maintainers have admin accounts (passkey, at `https://hub.<domain>/_emdash/admin`).
 
 ## Pages
 
@@ -26,17 +26,17 @@ The office noticeboard: an [EmDash](https://docs.emdashcms.com/) site (Astro, No
 Two or three people run the hub. Each has their own admin account, MCP token and GitHub access, so one can be removed without touching the others.
 
 - **Accounts:** Admin → Users → Invite. Maintainers get **Admin**; someone who only edits content gets **Editor**. Invites arrive by email (SMTP, see [infra/README.md](infra/README.md)).
-- **Trust the gateway's certificate, once per device.** HTTPS for every `*.office.lan` site uses the gateway CT's own certificate authority (there is no public domain), and passkeys need HTTPS.
+- **Trust the gateway's certificate, once per device.** HTTPS for every `*.<domain>` site uses the gateway CT's own certificate authority (there is no public domain), and passkeys need HTTPS.
 
   ```bash
-  scp root@gateway.lxc:/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt hub-ca.crt
+  curl -o hub-ca.crt http://<domain>/ca.crt
   # macOS
   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain hub-ca.crt
   # Windows (admin prompt)
   certutil -addstore -f ROOT hub-ca.crt
   ```
 
-- **Content by AI (MCP):** Admin → API tokens → create a token for yourself. Point your AI client at `https://hub.office.lan/_emdash/api/mcp` with header `Authorization: Bearer <token>`. Node-based clients that ignore the system certificate store also need `NODE_EXTRA_CA_CERTS=/path/to/hub-ca.crt`.
+- **Content by AI (MCP):** Admin → API tokens → create a token for yourself. Point your AI client at `https://hub.<domain>/_emdash/api/mcp` with header `Authorization: Bearer <token>`. Node-based clients that ignore the system certificate store also need `NODE_EXTRA_CA_CERTS=/path/to/hub-ca.crt`.
 - **Code by AI:** work in this repo, open a pull request, merge to `main`. It is live within about 5 minutes (see Deploy).
 - **SSH** to the container (rarely needed): add the person's public key to `/root/.ssh/authorized_keys` on the hub.
 
@@ -61,7 +61,7 @@ scripts/smoke.sh  # build, run against a throwaway DB, check the main pages
 Merging to `main` deploys automatically: GitHub builds and tests it, and the hub installs the new build within 5 minutes. If it fails to start, the previous version stays live.
 
 ```bash
-./deploy.sh       # by hand: build locally, install on root@hub.lxc (first install, or GitHub down)
+./deploy.sh       # by hand: build locally, install on HUB_HOST from .env (first install, or GitHub down)
 ```
 
 Server setup, environment variables (`AI_TEXT_URL`, `AI_IMAGE_URL`, `TEA_STATS_URL`, …) and the AI container are in [infra/README.md](infra/README.md).

@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Run ONCE as root on the Proxmox host (pve). Creates the `gateway` LXC, which
+# Run ONCE as root on the Proxmox host. Creates the `gateway` LXC, which
 # gives every container a name and HTTPS:
-#   dnsmasq  office.lan, *.office.lan -> this CT; <ct>.lxc -> that CT's IP
-#   Caddy    https://office.lan -> Proxmox UI
-#            https://<name>.office.lan -> http://<name>.lxc:80 (internal CA)
+#   dnsmasq  <domain>, *.<domain> -> this CT; <ct>.lxc -> that CT's IP
+#   Caddy    https://<domain> -> Proxmox UI
+#            https://<name>.<domain> -> http://<name>.lxc:80 (internal CA)
 # It also installs lxc-dns-sync on this host: a one-minute timer that pushes
 # "<ip> <hostname>.lxc" for every running CT to the gateway's dnsmasq.
-# The MikroTik forwards office.lan and lxc to this CT (infra/README.md).
-#   bash create-gateway-ct.sh
+# The router forwards <domain> and lxc to this CT (infra/README.md).
+#   bash create-gateway-ct.sh      (reads .env beside it or in its parent; see .env.example)
 set -euo pipefail
 
+for env in "$(dirname "$0")/.env" "$(dirname "$0")/../.env"; do
+	if [[ -f $env ]]; then source "$env"; break; fi
+done
 HOSTNAME=gateway
-DOMAIN=office.lan
+DOMAIN=${OFFICE_DOMAIN:?set OFFICE_DOMAIN in .env (see .env.example)}
 TEMPLATE=local:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-GH_KEY_USERS=(mahi160)
+read -ra GH_KEY_USERS <<<"${SSH_KEY_GITHUB_USERS:?set SSH_KEY_GITHUB_USERS in .env (see .env.example)}"
 ROUTER=$(ip route show default | awk '{print $3; exit}')
 HOST_IP=$(ip -o -f inet addr show dev vmbr0 | awk '{print $4; exit}' | cut -d/ -f1)
 
@@ -61,7 +64,7 @@ MAC=$(pct config "$VMID" | sed -n 's/^net0:.*hwaddr=\([^,]*\).*/\1/p')
 echo "==> Installing dnsmasq and Caddy"
 # Written before installing dnsmasq so its first start already uses it.
 cat >"$TMP/dnsmasq.conf" <<EOF
-# The MikroTik forwards $DOMAIN and lxc here; everything else goes back to it.
+# The router forwards $DOMAIN and lxc here; everything else goes back to it.
 # bind-dynamic: leave 127.0.0.53 to systemd-resolved, pick up eth0's DHCP address late.
 bind-dynamic
 interface=eth0
@@ -182,7 +185,7 @@ pct exec "$VMID" -- getent hosts "test.$DOMAIN" "$(hostname).lxc"
 cat <<EOF
 
 Created CT $VMID ($HOSTNAME): IP $IP, MAC $MAC.
-Next, on the MikroTik (infra/README.md, "Names and HTTPS"):
+Next, on the router (RouterOS; infra/README.md, "Names and HTTPS"):
   /ip dhcp-server lease make-static [find mac-address=$MAC]
   /ip dns static add name=$DOMAIN type=FWD forward-to=$IP match-subdomain=yes
   /ip dns static add name=lxc type=FWD forward-to=$IP match-subdomain=yes
