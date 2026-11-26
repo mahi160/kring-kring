@@ -35,7 +35,7 @@ import {
 import { eventEnd, upcomingEvents } from "../utils/events";
 import { dhakaMidnight, groupHolidays, nextHoliday } from "../utils/holidays";
 import { getNews } from "../utils/news";
-import { displayName, isActive } from "../utils/people";
+import { isActive } from "../utils/people";
 import { teaStats } from "../utils/tea";
 import { resolveStarterSiteIdentity } from "../utils/site-identity";
 import { aqiMood, getDhakaAirQuality, getDhakaWeather } from "../utils/weather";
@@ -77,7 +77,6 @@ const events = upcomingEvents(eventsResult.entries, now, 4);
 const activePeople = peopleResult.entries.filter(isActive);
 const birthdays = upcomingBirthdays(activePeople, now);
 const anniversaries = upcomingAnniversaries(activePeople, now);
-const birthdayToday = birthdays.filter((b) => b.inDays === 0).map((b) => displayName(b.person.data));
 const hasCelebrations = birthdays.length + anniversaries.length > 0;
 const staffId = currentStaffId(Astro.cookies);
 const comics = comicStore();
@@ -96,7 +95,6 @@ const comicOfMonth = today.slice(8) <= "07" ? comics.comicOfMonth(previousMonth(
 const quizQuestion = quiz.question;
 const quizStats = quizQuestion && quiz.clock.phase === "revealed" ? dailyQuiz().stats(quiz.clock.day, quizQuestion) : null;
 const myQuizChoice = quizQuestion && staffId ? dailyQuiz().answerOf(quiz.clock.day, staffId) : null;
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 const DAY_MS = 86_400_000;
 
 const sameDay = (a: Date, b: Date) => formatShortDate(a) === formatShortDate(b);
@@ -157,11 +155,6 @@ const until = (a: (typeof announcements)[number]) =>
 		<div class="hello">
 			<h1 class="greeting">{greeting(now)}</h1>
 			<p class="quip">{weekdayQuip(now)}</p>
-			{
-				birthdayToday.length > 0 && (
-					<p class="party">Happy birthday, {listFormat.format(birthdayToday)}!</p>
-				)
-			}
 			{holidayText && <p class="holiday"><a href="/holidays">{holidayText}</a></p>}
 			{
 				(weather || air) && (
@@ -197,6 +190,7 @@ const until = (a: (typeof announcements)[number]) =>
 				)
 			}
 		</div>
+		{hasCelebrations && <Celebrations birthdays={birthdays} anniversaries={anniversaries} now={now} />}
 	</section>
 
 	<div class="layout">
@@ -312,7 +306,6 @@ const until = (a: (typeof announcements)[number]) =>
 				myChoice={myQuizChoice}
 				stats={quizStats}
 			/>
-			{hasCelebrations && <Celebrations birthdays={birthdays} anniversaries={anniversaries} now={now} />}
 			<TeaCard stats={teaStats.latest()} />
 			<DailyBits joke={joke} wiki={wiki} />
 		</aside>
@@ -400,16 +393,6 @@ const until = (a: (typeof announcements)[number]) =>
 		margin: 0.6rem 0 0;
 		font-size: 1.25rem;
 		font-weight: 700;
-	}
-	.party {
-		display: inline-block;
-		margin: 0.9rem 0 0;
-		padding: 0.35rem 0.9rem;
-		border-radius: 999px;
-		background: var(--accent-ink);
-		color: var(--on-accent);
-		font-weight: 700;
-		rotate: -1.5deg;
 	}
 	.holiday {
 		margin: 0.9rem 0 0;

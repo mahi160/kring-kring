@@ -21,48 +21,87 @@ const initials = (name: string) =>
 		.slice(0, 2)
 		.map((w) => w[0]?.toUpperCase())
 		.join("");
+const ordinal = (n: number) => {
+	const s = ["th", "st", "nd", "rd"];
+	const v = n % 100;
+	return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
 const items = [
 	...birthdays.map((c) => ({
 		...c,
-		what: "Birthday",
 		kind: "birthday" as const,
-		headline: `Happy birthday, ${displayName(c.person.data)}!`,
+		name: displayName(c.person.data),
+		what: "Birthday",
+		cover: "Happy Birthday",
+		header: "Happy Birthday!",
+		subheader: "Many happy returns",
+		wish: "Wishing you a year full of laughter, good health and everything that makes you smile. Thank you for making the office a brighter place every day. Enjoy your day!",
+		from: "With love,",
 	})),
 	...anniversaries.map((c) => ({
 		...c,
-		headline: `Happy ${c.years}-year work anniversary, ${displayName(c.person.data)}!`,
-		what: `${c.years} ${c.years === 1 ? "year" : "years"} with us`,
 		kind: "anniversary" as const,
+		name: displayName(c.person.data),
+		what: `${c.years} ${c.years === 1 ? "year" : "years"} with us`,
+		cover: `${ordinal(c.years)} Anniversary`,
+		header: "Congratulations!",
+		subheader: `${ordinal(c.years)} Work Anniversary`,
+		wish:
+			c.years === 1
+				? "One year in, and your impact is already undeniable. Thank you for bringing your energy, ideas and dedication to the team. Here's to many more milestones together!"
+				: `${c.years} years of dedication, growth and making a difference. Your commitment inspires everyone around you, and we are truly grateful to have you on the team.`,
+		from: "With appreciation,",
 	})),
 ].sort((a, b) => a.inDays - b.inDays);
-// Decorative confetti: fixed positions so server renders are stable.
-const confetti = Array.from({ length: 18 }, (_, i) => ({
-	left: (i * 37) % 100,
-	top: (i * 53 + 11) % 100,
-	size: 0.6 + ((i * 7) % 5) * 0.25,
-	turn: (i * 47) % 180,
-	color: ["--accent", "--highlight", "--note-mint", "--note-sky", "--note-pink"][i % 5],
-	round: i % 3 === 0,
-}));
+// Fixed positions so server renders are stable.
+const COLORS = ["--accent", "--highlight", "--note-mint", "--note-sky", "--note-pink", "--accent-soft"];
+const confetti = (count: number) =>
+	Array.from({ length: count }, (_, i) => ({
+		left: (i * 37) % 100,
+		// Alternate top and bottom edges so hero sprinkles peek out around the note.
+		top: i % 2 ? (i * 7) % 12 : 88 + ((i * 5) % 12),
+		size: 0.5 + ((i * 7) % 5) * 0.2,
+		turn: (i * 47) % 180,
+		delay: ((i * 13) % 20) / 10,
+		fall: 2.6 + ((i * 11) % 15) / 10,
+		drift: ((i * 29) % 13) - 6,
+		color: COLORS[i % COLORS.length],
+		round: i % 3 === 0,
+	}));
+const bits = (count: number) =>
+	confetti(count).map((k) => ({
+		class: ["bit", { round: k.round }],
+		style: `left:${k.left}%;--top:${k.top}%;width:${k.size}rem;height:${k.round ? k.size : k.size * 0.5}rem;rotate:${k.turn}deg;background:var(${k.color});--delay:${k.delay}s;--fall:${k.fall}s;--drift:${k.drift}rem`,
+	}));
+const year = now.getFullYear();
 ---
 
-<section class="card celebrations" aria-labelledby="celebrations-title">
-	<h2 id="celebrations-title" class="card-title">Celebrations</h2>
+<div class="celebrations" role="region" aria-labelledby="celebrations-title">
+	<h2 id="celebrations-title" class="label">Celebrations</h2>
 	<ul role="list">
 		{
 			items.map((c, i) => (
 				<li class:list={[c.kind, { today: c.inDays === 0 }]} data-celebration>
-					{c.person.data.photo ? (
-						<Image image={c.person.data.photo} alt="" width={48} height={48} class="avatar" />
-					) : (
-						<span class="avatar" aria-hidden="true">
-							{initials(displayName(c.person.data))}
+					{c.inDays === 0 && (
+						<span class="sprinkles" aria-hidden="true">
+							{bits(20).map((b) => <span class:list={b.class} style={b.style} />)}
 						</span>
 					)}
-					<button type="button" class="who" data-card-open={`card-${i}`}>
-						<span class="name">{displayName(c.person.data)}</span>
-						<span class="what">
-							{c.what} · <time datetime={c.on.toISOString().slice(0, 10)}>{when(c)}</time>
+					<button type="button" class="note" data-card-open={`card-${i}`} aria-haspopup="dialog">
+						{c.person.data.photo ? (
+							<Image image={c.person.data.photo} alt="" width={56} height={56} class="avatar" />
+						) : (
+							<span class="avatar" aria-hidden="true">
+								{initials(c.name)}
+							</span>
+						)}
+						<span class="text">
+							<span class="name">
+								{c.inDays === 0 ? (c.kind === "birthday" ? `Happy birthday, ${c.name}!` : `Happy anniversary, ${c.name}!`) : c.name}
+							</span>
+							<span class="what">
+								{c.what} · <time datetime={c.on.toISOString().slice(0, 10)}>{when(c)}</time>
+							</span>
 						</span>
 						<span class="visually-hidden">Open greeting card</span>
 					</button>
@@ -73,43 +112,51 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 	{
 		items.map((c, i) => (
 			<dialog id={`card-${i}`} class:list={["greeting-card", c.kind]} aria-labelledby={`card-${i}-title`}>
-				<div class="paper">
-				<div class="confetti" aria-hidden="true">
-					{confetti.map((k) => (
-						<span
-							class:list={["bit", { round: k.round }]}
-							style={`left:${k.left}%;top:${k.top}%;width:${k.size}rem;height:${k.size}rem;rotate:${k.turn}deg;background:var(${k.color})`}
-						/>
-					))}
-				</div>
-					{c.person.data.photo ? (
-						<Image image={c.person.data.photo} alt="" width={160} height={160} class="portrait" />
-					) : (
-						<span class="portrait" aria-hidden="true">
-							{initials(displayName(c.person.data))}
-						</span>
-					)}
-					<h3 id={`card-${i}-title`}>{c.headline}</h3>
-					<p class="date">
-						<time datetime={c.on.toISOString().slice(0, 10)}>{formatShortDate(c.on)}</time>
-					</p>
-					<p class="from">From all of us at the office</p>
-					<ul class="signatures" role="list">
-						{Array.from({ length: 6 }, () => (
-							<li>
-								<span>Sign here</span>
-							</li>
-						))}
-					</ul>
+				<div class="pages">
+					<div class="page">
+						<div class="half back">
+							<p class="back-footer">
+								{c.kind === "birthday" ? "Birthday" : "Work Anniversary"} · {year}
+							</p>
+						</div>
+						<div class="half cover">
+							{c.person.data.photo ? (
+								<Image image={c.person.data.photo} alt="" width={600} height={840} class="cover-photo" />
+							) : (
+								<div class="cover-plain" aria-hidden="true">
+									<span class="cover-initials">{initials(c.name)}</span>
+									<span class="cover-title">{c.cover}</span>
+								</div>
+							)}
+						</div>
+					</div>
+					<div class="page">
+						<div class="half sign" />
+						<div class="half inside">
+							<div class="frame" aria-hidden="true" />
+							<div class="frame inner" aria-hidden="true" />
+							<h3 id={`card-${i}-title`} class="wish-header">{c.header}</h3>
+							<p class="wish-subheader">{c.subheader}</p>
+							<p class="recipient">{c.name}</p>
+							<p class="wish">{c.wish}</p>
+							<div class="signature">
+								<p class="signature-from">{c.from}</p>
+								<p class="signature-name">Everyone at the office</p>
+							</div>
+						</div>
+					</div>
 				</div>
 				<div class="actions">
 					<button type="button" data-card-print>Print card</button>
 					<button type="button" data-card-close>Close</button>
 				</div>
+				<div class="confetti" aria-hidden="true">
+					{bits(70).map((b) => <span class:list={b.class} style={b.style} />)}
+				</div>
 			</dialog>
 		))
 	}
-</section>
+</div>
 
 <script>
 	for (const opener of document.querySelectorAll<HTMLButtonElement>("[data-card-open]")) {
@@ -123,37 +170,105 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 	for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog.greeting-card")) {
 		dialog.querySelector("[data-card-close]")?.addEventListener("click", () => dialog.close());
 		dialog.querySelector("[data-card-print]")?.addEventListener("click", () => window.print());
+		// Click on the backdrop closes it
+		dialog.addEventListener("click", (e) => {
+			if (e.target === dialog) dialog.close();
+		});
 	}
 </script>
 
 <style>
+	/* ---- Hero list: taped notes beside the greeting ---- */
+	.celebrations {
+		flex: 0 1 22rem;
+		margin-inline-start: auto;
+		display: grid;
+		gap: 0.6rem;
+	}
+	@media (max-width: 48rem) {
+		.celebrations {
+			flex-basis: 100%;
+			margin-inline-start: 0;
+		}
+	}
+	.label {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: 1.25rem;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+		color: var(--slate);
+	}
 	ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: grid;
-		gap: 0.5rem;
+		gap: 0.6rem;
 	}
 	li {
+		position: relative;
+	}
+	.note {
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 0.4rem;
+		width: 100%;
+		padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+		border: 2px solid var(--rule);
 		border-radius: 0.6rem;
+		background: var(--sheet);
+		color: var(--ink);
+		font: inherit;
+		line-height: 1.3;
+		text-align: start;
+		cursor: pointer;
+		transition: rotate 0.15s, border-color 0.15s;
+	}
+	.note:hover {
+		border-color: var(--accent-ink);
+	}
+	.note:focus-visible {
+		outline: 3px solid var(--highlight);
+		outline-offset: 2px;
 	}
 	/* Today's people get the party treatment */
-	li.today {
+	.today .note {
+		padding: 0.75rem 1rem 0.75rem 0.75rem;
+		border: 0;
 		background: var(--note-pink);
-		rotate: -1deg;
+		box-shadow: 0 0.6rem 1.25rem -0.75rem rgb(22 32 27 / 0.35);
+		rotate: -1.5deg;
 	}
-	li.today.anniversary {
+	.today.anniversary .note {
 		background: var(--note-sky);
+		rotate: 1deg;
+	}
+	/* Tape strip */
+	.today .note::before {
+		content: "";
+		position: absolute;
+		inset-block-start: -0.6rem;
+		inset-inline-start: 50%;
+		width: 4.5rem;
+		height: 1.2rem;
+		translate: -50% 0;
+		rotate: 3deg;
+		background: var(--note-yellow);
+		opacity: 0.85;
+	}
+	@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+		.note:hover {
+			rotate: 0deg;
+		}
 	}
 	.avatar {
 		display: grid;
 		place-items: center;
 		flex: none;
-		width: 3rem;
+		width: 2.75rem;
 		aspect-ratio: 1;
 		border-radius: 50%;
 		object-fit: cover;
@@ -161,30 +276,28 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 		font-family: var(--font-display);
 		font-weight: 800;
 		font-size: 1.125rem;
+		color: var(--ink);
+	}
+	.today .avatar {
+		width: 3.5rem;
+		box-shadow: 0 0 0 3px var(--sheet);
 	}
 	.birthday .avatar:not(img) {
 		background: var(--note-yellow);
 	}
-	.who {
+	.text {
 		display: grid;
-		flex: 1;
 		min-width: 0;
-		padding: 0;
-		border: 0;
-		background: none;
-		color: inherit;
-		font: inherit;
-		line-height: 1.3;
-		text-align: start;
-		cursor: pointer;
-	}
-	.who:focus-visible {
-		outline: 3px solid var(--highlight);
-		outline-offset: 2px;
 	}
 	.name {
 		font-weight: 700;
 		overflow-wrap: break-word;
+	}
+	.today .name {
+		font-family: var(--font-display);
+		font-weight: 800;
+		font-size: 1.5rem;
+		line-height: 1.05;
 	}
 	.what {
 		font-size: 0.875rem;
@@ -194,108 +307,191 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 		color: var(--ink);
 		font-weight: 700;
 	}
+	.sprinkles {
+		position: absolute;
+		inset: -1.1rem -0.6rem;
+		pointer-events: none;
+	}
+	.sprinkles .bit {
+		position: absolute;
+		top: var(--top);
+		opacity: 0.8;
+	}
+	.bit.round {
+		border-radius: 50%;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.sprinkles .bit {
+			animation: sprinkle-pop 0.6s var(--delay) both cubic-bezier(0.3, 1.6, 0.5, 1);
+		}
+	}
+	/* Keyframe names are global; keep these unique. */
+	@keyframes sprinkle-pop {
+		from {
+			scale: 0;
+			opacity: 0;
+		}
+	}
 </style>
 
 <style>
+	/* ---- The card: a folded A4 sheet, after the printed cards ---- */
 	.greeting-card {
 		position: fixed;
-		width: min(100% - 2rem, 48rem);
+		width: min(100% - 2rem, 60rem);
 		max-height: calc(100dvh - 2rem);
 		padding: 0;
 		border: 0;
 		border-radius: var(--radius);
-		background: var(--sheet);
+		background: var(--paper);
 		color: var(--ink);
 		overflow: auto;
 	}
 	.greeting-card::backdrop {
 		background: rgb(22 32 27 / 0.6);
 	}
-	.paper {
-		position: relative;
+	.pages {
 		display: grid;
-		justify-items: center;
-		gap: 0.75rem;
 		margin: 1rem;
-		padding: clamp(1.5rem, 1rem + 3vw, 3rem) clamp(1rem, 0.5rem + 3vw, 3rem);
-		border: 0.5rem solid var(--highlight);
-		border-radius: var(--radius);
+		background: var(--sheet);
+		box-shadow: 0 0.75rem 2rem -1rem rgb(22 32 27 / 0.35);
+	}
+	@media (min-width: 44rem) {
+		.pages {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+	/* On screen show only the cover and the message; the back and the signing side are for print. */
+	.page {
+		display: contents;
+	}
+	.back,
+	.sign {
+		display: none;
+	}
+	.half {
+		position: relative;
+	}
+	.cover {
+		min-height: 18rem;
+		overflow: hidden;
+	}
+	.cover-photo {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		object-fit: cover;
+		object-position: center top;
+	}
+	.cover-plain {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-content: center;
+		justify-items: center;
+		gap: 1rem;
+		padding: 2rem;
+		background: radial-gradient(circle at center, var(--sheet) 0%, var(--note-yellow) 100%);
+		color: var(--ink);
+		text-align: center;
+	}
+	.anniversary .cover-plain {
+		background: radial-gradient(circle at center, var(--sheet) 0%, var(--note-sky) 100%);
+	}
+	.cover-initials {
+		font-family: var(--font-card-name);
+		font-weight: 700;
+		font-size: clamp(4rem, 3rem + 5vw, 7rem);
+		line-height: 1;
+		color: var(--accent-ink);
+	}
+	.cover-title {
+		font-family: var(--font-card-script);
+		font-style: italic;
+		font-weight: 600;
+		font-size: 2rem;
+		line-height: 1.1;
+	}
+	.inside {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		padding: clamp(2.5rem, 2rem + 3vw, 4rem) clamp(2rem, 1.5rem + 3vw, 3.5rem);
 		background: var(--sheet);
 		text-align: center;
 	}
-	.anniversary .paper {
-		border-color: var(--accent);
-	}
-	.confetti {
+	.frame {
 		position: absolute;
-		inset: 0;
-		overflow: hidden;
+		inset: 1.25rem;
+		border: 1px solid var(--accent-ink);
+		opacity: 0.2;
 		pointer-events: none;
 	}
-	.paper > :not(.confetti) {
-		position: relative;
+	.frame.inner {
+		inset: 1.6rem;
+		border-color: var(--highlight);
+		opacity: 0.5;
 	}
-	.bit {
-		position: absolute;
-		opacity: 0.7;
-	}
-	.bit.round {
-		border-radius: 50%;
-	}
-	.portrait {
-		display: grid;
-		place-items: center;
-		width: 8rem;
-		aspect-ratio: 1;
-		border-radius: 50%;
-		border: 0.3rem solid var(--note-yellow);
-		object-fit: cover;
-		background: var(--note-mint);
-		font-family: var(--font-display);
-		font-weight: 800;
-		font-size: 2.5rem;
-	}
-	h3 {
+	.wish-header {
 		margin: 0;
-		font-family: var(--font-display);
-		font-weight: 800;
-		font-size: clamp(1.75rem, 1.25rem + 2.5vw, 3rem);
+		font-family: var(--font-card-script);
+		font-style: italic;
+		font-weight: 600;
+		font-size: clamp(2.25rem, 1.75rem + 2vw, 3rem);
 		line-height: 1.1;
+	}
+	.wish-subheader {
+		margin: 0.4rem 0 0;
+		font-size: 0.7rem;
+		font-weight: 700;
+		letter-spacing: 0.35em;
+		text-transform: uppercase;
+		color: var(--accent-ink);
+	}
+	.recipient {
+		margin: 1.5rem 0;
+		font-family: var(--font-card-name);
+		font-weight: 700;
+		font-size: 1.5rem;
+		line-height: 1.2;
+		color: var(--accent-ink);
 		overflow-wrap: break-word;
 	}
-	.date,
-	.from {
+	.wish {
+		max-width: 30ch;
 		margin: 0;
-	}
-	.date {
-		color: var(--slate);
-		font-weight: 700;
-	}
-	.from {
+		font-family: var(--font-card-script);
+		font-style: italic;
 		font-size: 1.25rem;
+		line-height: 1.6;
+		color: var(--slate);
+	}
+	.signature {
+		margin-block-start: 2rem;
+	}
+	.signature-from {
+		margin: 0;
+		font-size: 0.8rem;
+		font-style: italic;
+		color: var(--slate);
+	}
+	.signature-name {
+		margin: 0.25rem 0 0;
 		font-weight: 700;
+		letter-spacing: 0.06em;
 	}
-	.signatures {
-		list-style: none;
-		margin: 0.5rem 0 0;
-		padding: 0;
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 1.75rem 1.5rem;
-		width: 100%;
-	}
-	@media (min-width: 36rem) {
-		.signatures {
-			grid-template-columns: repeat(3, 1fr);
-		}
-	}
-	.signatures li {
-		padding-block-start: 1.75rem;
-		border-block-end: 2px solid var(--ink);
-		text-align: start;
-	}
-	.signatures span {
-		font-size: 0.75rem;
+	.back-footer {
+		position: absolute;
+		inset-block-end: 2.5rem;
+		inset-inline: 0;
+		margin: 0;
+		font-size: 0.55rem;
+		letter-spacing: 0.3em;
+		text-transform: uppercase;
+		text-align: center;
 		color: var(--slate);
 	}
 	.actions {
@@ -324,6 +520,37 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 		outline: 3px solid var(--highlight);
 		outline-offset: 2px;
 	}
+	/* Confetti rains over the card each time it opens (closed dialogs are display: none, so it restarts). */
+	.confetti {
+		position: fixed;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.confetti .bit {
+		position: absolute;
+		top: -2rem;
+		opacity: 0;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.confetti .bit {
+			animation: confetti-fall var(--fall) var(--delay) ease-in both;
+		}
+	}
+	@keyframes confetti-fall {
+		from {
+			opacity: 1;
+			translate: 0 0;
+		}
+		85% {
+			opacity: 1;
+		}
+		to {
+			opacity: 0;
+			translate: var(--drift) 105dvh;
+			rotate: 540deg;
+		}
+	}
 </style>
 
 <style is:global>
@@ -332,7 +559,7 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 			size: A4 landscape;
 			margin: 0;
 		}
-		/* :where() keeps this at zero specificity so the card's "visible" rule wins */
+		/* Print only the open card: two A4 pages to print double-sided and fold. */
 		:where(body:has(dialog.greeting-card[open])) * {
 			visibility: hidden;
 		}
@@ -344,22 +571,40 @@ const confetti = Array.from({ length: 18 }, (_, i) => ({
 			visibility: visible;
 		}
 		dialog.greeting-card[open] {
-			inset: 0;
-			width: 100vw;
+			position: absolute;
+			inset: 0 auto auto 0;
+			width: 297mm;
 			max-width: none;
-			height: 100vh;
+			height: auto;
 			max-height: none;
 			margin: 0;
 			border-radius: 0;
-			overflow: hidden;
+			background: none;
+			overflow: visible;
 			print-color-adjust: exact;
 			-webkit-print-color-adjust: exact;
 		}
-		dialog.greeting-card[open] .paper {
-			min-height: calc(100vh - 2rem);
-			align-content: center;
+		dialog.greeting-card[open] .pages {
+			display: block;
+			margin: 0;
+			box-shadow: none;
 		}
-		dialog.greeting-card[open] .actions {
+		dialog.greeting-card[open] .page {
+			display: flex;
+			width: 297mm;
+			height: 210mm;
+			break-after: page;
+		}
+		dialog.greeting-card[open] .half {
+			display: flex;
+			width: 50%;
+			min-height: 0;
+		}
+		dialog.greeting-card[open] .back {
+			border-inline-end: 1px dashed var(--rule);
+		}
+		dialog.greeting-card[open] .actions,
+		dialog.greeting-card[open] .confetti {
 			display: none;
 		}
 	}
